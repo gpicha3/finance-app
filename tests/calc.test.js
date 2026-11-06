@@ -159,22 +159,34 @@ test('ภาษาอังกฤษ: วันที่และชื่อร
   assert.equal(C.fmtDate(D('2026-11-25')), '25 พ.ย. 2026');
 });
 
+test('ยอดรายวัน: รวมเฉพาะรายจ่ายของแต่ละวัน เรียงล่าสุดก่อน และบอกวันที่เกินงบต่อวัน', () => {
+  const today = D('2026-11-07');
+  const label = '26 ต.ค.–24 พ.ย.'; // 30 วัน งบต่อวัน 213.33
+  const cycle = C.buildCycles([
+    row('2026-11-05', label, 100), row('2026-11-05', label, 150.5),
+    row('2026-11-07', label, 213.33), row('2026-11-06', label, 500, { type: C.INCOME }),
+    row('2026-11-04', label, 'x'), row('2026-10-26', label, 300),
+  ], today).find((x) => x.key === '2026-10');
+  const d = C.dailyBreakdown(cycle, today);
+  assert.equal(d.limit, 213.33);
+  assert.equal(d.elapsed, 13);
+  assert.deepEqual(d.days.map((x) => x.date), ['2026-11-07', '2026-11-05', '2026-10-26']);
+  assert.deepEqual(d.days.map((x) => x.total), [213.33, 250.5, 300]);
+  assert.deepEqual(d.days.map((x) => x.over), [false, true, true]);
+  assert.equal(d.days[1].overBy, 37.17);
+  assert.equal(d.overCount, 2);
+  // รอบที่จบแล้วนับครบทุกวัน และรอบที่อ่านวันที่ไม่ได้จะไม่ตัดสินว่าเกิน
+  assert.equal(C.dailyBreakdown(cycle, D('2027-01-01')).elapsed, 30);
+  const unknown = C.dailyBreakdown({ start: null, end: null, rows: [row('ไม่ทราบ', '', 900)] }, today);
+  assert.equal(unknown.limit, null);
+  assert.equal(unknown.days[0].date, '-');
+  assert.equal(unknown.days[0].over, false);
+});
+
 test('ชื่อรอบตามบล็อก Fix cost', () => {
   assert.equal(C.cycleName('2026-10'), 'รอบ พ.ย. 2026');
   assert.equal(C.cycleName('2026-12'), 'รอบ ม.ค. 2027');
 });
-
-test('ข้อมูลกราฟซ้อน: เริ่มจากบล็อกปัจจุบัน ก้อนที่หมดช้าสุดอยู่ล่าง และรวมก้อนที่ยังไม่เริ่มตามเดือนจริง', () => {
-  const today = D('2026-11-06');
-  const s = C.installmentSummary([inst('2026-10', 3, 10, 'สั้น'), inst('2026-01', 12, 100, 'ยาว'), inst('2027-01', 1, 7, 'ใหม่'), inst('2025-01', 2, 5, 'จบแล้ว')], today);
-  const st = C.installmentStack(s, today);
-  assert.deepEqual(st.months, ['2026-11', '2026-12', '2027-01']);
-  assert.deepEqual(st.series.map((x) => x.name), ['ใหม่', 'สั้น', 'ยาว']);
-  assert.deepEqual(st.totals, [110, 110, 7]);
-  assert.equal(st.totals[0], s.now);
-  assert.deepEqual(C.installmentStack(C.installmentSummary([], today), today), { months: [], series: [], totals: [] });
-});
-
 
 test('งวดผ่อน: 48 งวดจาก 2024-11 ณ 6 พ.ย. 2026 ได้ 24 งวด', () => {
   const s = C.installmentStatus(inst('2024-11', 48), D('2026-11-06'));

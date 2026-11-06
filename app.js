@@ -1,7 +1,7 @@
 'use strict';
 
-const APP_VERSION = '2026.11.07.15';
-const KEYS = { setup: 'fa.setup', data: 'fa.data', synced: 'fa.synced', buddy: 'fa.buddy', loanChart: 'fa.loanChart' };
+const APP_VERSION = '2026.11.07.16';
+const KEYS = { setup: 'fa.setup', data: 'fa.data', synced: 'fa.synced', buddy: 'fa.buddy', cycleView: 'fa.cycleView' };
 
 const $ = (s, el = document) => el.querySelector(s);
 const $$ = (s, el = document) => [...el.querySelectorAll(s)];
@@ -69,7 +69,7 @@ const state = {
   fixYm: null,    // เดือนที่กำลังดูในหน้า Fixed cost
   tab: 'today',
   buddy: store.get(KEYS.buddy, 'tree'),
-  loanChart: store.get(KEYS.loanChart, 'timeline'),
+  cycleView: store.get(KEYS.cycleView, 'category'),
 };
 state.data = state.setup ? store.get(KEYS.data, null) : demoData();
 
@@ -134,11 +134,11 @@ const unit = () => `<i class="unit"> ${t('currency')}</i>`;
 const signed = (n) => `${n > 0 ? '+' : '−'}${money(Math.abs(n))}`;
 const bigNum = (n) => { const [w, d] = baht(Math.abs(n)).split('.'); return `${n < 0 ? '−' : ''}${w}<i>.${d} ${t('currency')}</i>`; };
 // หลอดน้ำ: หลอดว่างไม่มีน้ำและไม่เรือง
-const bar = (pct) => {
+const bar = (pct, over = false) => {
   const p = Math.max(0, Math.min(100, pct));
   if (p <= 0) return '<div class="tube"><div class="tube-in"></div></div>';
   const w = `width:${p.toFixed(1)}%`;
-  return `<div class="tube"><span class="tube-glow" style="${w}"></span><div class="tube-in"><i style="${w}"></i></div></div>`;
+  return `<div class="tube${over ? ' over' : ''}"><span class="tube-glow" style="${w}"></span><div class="tube-in"><i style="${w}"></i></div></div>`;
 };
 // เลือกรอบด้วยการปัด จุดด้านล่างบอกตำแหน่งจากเก่าไปใหม่
 const pager = (id, title, sub, back, pos, total) => {
@@ -243,7 +243,30 @@ function renderCycles(vm) {
       <div class="equation">${t('spent_v', money(c.expense))}${c.income ? ` · ${t('extra_income', whole(c.income))}` : ''}</div>
     </section>
     ${c.invalid ? `<p class="hint warn">${t('invalid_rows', c.invalid)}</p>` : ''}
-    <section class="panel list">
+    <div class="segmented small page-seg" id="cycleSeg">
+      <i class="seg-glider" aria-hidden="true"></i>
+      <button type="button" data-cycle-view="category">${t('view_category')}</button>
+      <button type="button" data-cycle-view="daily">${t('view_daily')}</button>
+    </div>
+    ${state.cycleView === 'daily' ? cycleDays(c, vm.now) : cycleCategories(c)}`;
+  const seg = $('#cycleSeg');
+  markSeg(seg, state.cycleView, 'cycleView');
+  dragSelect(seg, {
+    names: () => ['category', 'daily'],
+    preview: (name) => markSeg(seg, name, 'cycleView'),
+    commit: pickCycleView,
+    restore: () => markSeg(seg, state.cycleView, 'cycleView'),
+  });
+}
+
+function pickCycleView(name) {
+  state.cycleView = name;
+  store.set(KEYS.cycleView, name);
+  renderCycles(viewModel());
+}
+
+function cycleCategories(c) {
+  return `<section class="panel list">
       ${c.categories.length ? c.categories.map((cat) => `<details>
         <summary><span class="row-name">${esc(cat.name)}</span><b>${money(cat.total)}</b>${CHEV_D}${bar(c.expense > 0 ? (cat.total / c.expense) * 100 : 0)}</summary>
         <ul class="items">${cat.rows.map(itemRow).join('')}</ul>
@@ -253,6 +276,25 @@ function renderCycles(vm) {
       <summary><span class="row-name">${t('income')}</span><b>${money(c.income)}</b>${CHEV_D}</summary>
       <ul class="items">${c.incomeRows.map(itemRow).join('')}</ul>
     </details></section>` : ''}`;
+}
+
+// รายวัน: หลอดเต็มเมื่อใช้ครบงบต่อวัน วันที่เกินเป็นสีแดงและมีข้อความบอกยอดที่เกิน
+function cycleDays(c, now) {
+  const d = Calc.dailyBreakdown(c, now);
+  if (!d.days.length) return `<section class="panel list"><p class="empty">${t('no_expense')}</p></section>`;
+  const dayName = (s) => {
+    const date = Calc.parseYmd(s);
+    if (!date) return t('no_date');
+    return Calc.daysBetween(date, now) === 0 ? t('today_label') : Calc.fmtDayMonth(date);
+  };
+  const head = d.limit != null ? `<p class="day-head">${t('day_limit', money(d.limit))} · ${t('over_days', d.overCount, d.elapsed)}</p>` : '';
+  return `${head}<section class="panel list">
+    ${d.days.map((day) => `<details>
+      <summary><span class="row-name">${esc(dayName(day.date))}</span><b class="${day.over ? 'bad' : ''}">${money(day.total)}</b>${CHEV_D}${bar(d.limit ? (day.total / d.limit) * 100 : 0, day.over)}${day.over ? `<small class="bad">${t('over_by', money(day.overBy))}</small>` : ''}</summary>
+      <ul class="items">${day.rows.map((r) => `<li><span class="item-name">${esc(r.item) || '–'}</span><span class="item-amt">${money(r.amount)}</span>
+        <span class="item-sub">${esc(r.category) || '-'}${r.note ? ` · ${esc(r.note)}` : ''}</span></li>`).join('')}</ul>
+    </details>`).join('')}
+  </section>`;
 }
 
 /* ---------- Fixed cost ---------- */
@@ -291,43 +333,6 @@ function loanTimeline(monthly, timeline) {
   </ol>`;
 }
 
-// พื้นที่ซ้อน: ความสูงรวมคือยอดต่อเดือน แต่ละชั้นคือหนึ่งรายการ ใช้สีหลักไล่อ่อนลงตามลำดับ มีคำอธิบายชื่อและยอดใต้กราฟ
-const STACK_SHADES = [100, 74, 54, 36, 22];
-const stackColor = (i) => `color-mix(in srgb, var(--accent) ${STACK_SHADES[Math.min(i, STACK_SHADES.length - 1)]}%, var(--panel))`;
-
-function loanStack(stack) {
-  const { months, series, totals } = stack;
-  if (!months.length) return `<p class="empty">${t('no_changes')}</p>`;
-  const W = 340, H = 150, top = 22, base = 126;
-  const max = Math.max(...totals, 1);
-  const n = months.length;
-  const x = (i) => (i / n) * W;
-  const y = (v) => base - (v / max) * (base - top);
-  const stepTop = (values) => values.map((v, i) => `${i ? 'H' : 'M'}${x(i).toFixed(1)}${i ? `V${y(v).toFixed(1)}` : ` ${y(v).toFixed(1)}`}`).join('') + `H${W}`;
-  let floor = months.map(() => 0);
-  const layers = series.map((s, si) => {
-    const tops = floor.map((f, m) => f + s.values[m]);
-    let back = `V${y(floor[n - 1]).toFixed(1)}`;
-    for (let m = n - 1; m >= 0; m -= 1) {
-      back += `H${x(m).toFixed(1)}`;
-      if (m > 0) back += `V${y(floor[m - 1]).toFixed(1)}`;
-    }
-    floor = tops;
-    return `<path class="layer" d="${stepTop(tops)}${back}Z" style="fill:${stackColor(si)}"/>`;
-  }).join('');
-  const surface = stepTop(totals);
-  const legend = series.map((s, si) => `<li><i style="background:${stackColor(si)}"></i><span>${esc(s.name)}</span><b>${money(s.monthly)}</b></li>`).join('');
-  return `<div class="chart"><svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(t('chart_aria'))}">
-    <defs><filter id="lineSoft" x="-5%" y="-30%" width="110%" height="160%"><feGaussianBlur stdDeviation="3"/></filter></defs>
-    <line class="grid" x1="0" x2="${W}" y1="${base}" y2="${base}"/>
-    ${layers}
-    <path class="glow" d="${surface}" filter="url(#lineSoft)"/><path class="line" d="${surface}"/><path class="spark" d="${surface}" pathLength="100"/>
-    <text class="val" x="1" y="${(y(totals[0]) - 7).toFixed(1)}">${plain(totals[0])}<tspan class="u"> ${t('currency')}</tspan></text>
-    <text x="1" y="${H - 8}">${esc(Calc.fmtYm(months[0]))}</text>
-    <text x="${W - 1}" y="${H - 8}" text-anchor="end">${esc(Calc.fmtYm(months[n - 1]))}</text>
-  </svg><ul class="legend">${legend}</ul></div>`;
-}
-
 const fact = (k, v) => `<div><span>${esc(k)}</span><b>${v}</b></div>`;
 
 function loanRow(i) {
@@ -356,28 +361,7 @@ function renderLoans(vm) {
     <section class="panel list">
       ${active.length ? active.map((i) => loanRow(i)).join('') : `<p class="empty">${t('no_active')}</p>`}
     </section>
-    <section class="panel loan-charts">
-      <div class="segmented small" id="chartSeg">
-        <i class="seg-glider" aria-hidden="true"></i>
-        <button type="button" data-chart="timeline">${t('chart_timeline')}</button>
-        <button type="button" data-chart="stack">${t('chart_stack')}</button>
-      </div>
-      ${state.loanChart === 'stack' ? loanStack(Calc.installmentStack(vm.loans, vm.now)) : loanTimeline(monthly, timeline)}
-    </section>`;
-  const seg = $('#chartSeg');
-  markSeg(seg, state.loanChart, 'chart');
-  dragSelect(seg, {
-    names: () => ['timeline', 'stack'],
-    preview: (name) => markSeg(seg, name, 'chart'),
-    commit: pickLoanChart,
-    restore: () => markSeg(seg, state.loanChart, 'chart'),
-  });
-}
-
-function pickLoanChart(name) {
-  state.loanChart = name;
-  store.set(KEYS.loanChart, name);
-  renderLoans(viewModel());
+    <section class="panel">${loanTimeline(monthly, timeline)}</section>`;
 }
 
 /* ---------- สลับหน้า ---------- */
@@ -470,7 +454,7 @@ function renderThemeControls() {
 
 function renderBuddyChoices() {
   $('#buddies').innerHTML = BUDDIES.map((id) => `<button type="button" class="buddy-choice${id === state.buddy ? ' active' : ''}" data-choose="${id}" aria-pressed="${id === state.buddy}">
-    <i>${renderBuddy(id, 1, 'good')}</i>${esc(t(`buddy_${id}`))}
+    <i>${renderBuddy(id, 1, 'good')}</i><span>${esc(t(`buddy_${id}`))}</span><small>${esc(t(`kind_${id}`))}</small>
   </button>`).join('');
 }
 
@@ -716,7 +700,7 @@ function swipePeriods(view, kind) {
   let swallowClick = false;
   const reset = () => { view.classList.remove('swiping'); view.style.transform = ''; };
   view.addEventListener('pointerdown', (e) => {
-    if (e.button) return;
+    if (e.button || e.target.closest('.segmented')) return;
     s = { id: e.pointerId, x: e.clientX, y: e.clientY, on: false, dx: 0 };
   });
   view.addEventListener('pointermove', (e) => {
@@ -784,8 +768,8 @@ document.addEventListener('click', (e) => {
     setTimeout(() => pet.classList.remove(cls), cls === 'bliss' ? 1700 : 800);
     return;
   }
-  const chart = e.target.closest('[data-chart]');
-  if (chart) { pickLoanChart(chart.dataset.chart); return; }
+  const cycleView = e.target.closest('[data-cycle-view]');
+  if (cycleView) { pickCycleView(cycleView.dataset.cycleView); return; }
   const tab = e.target.closest('[data-tab]');
   if (tab) { showTab(tab.dataset.tab); return; }
   const goto = e.target.closest('[data-goto]');

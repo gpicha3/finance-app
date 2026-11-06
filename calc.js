@@ -165,6 +165,28 @@
     };
   }
 
+  // ยอดรายวันของรอบ เรียงจากวันล่าสุด งบต่อวัน = งบรอบ ÷ จำนวนวันในรอบ วันที่ไม่มีรายจ่ายจะไม่อยู่ในรายการ
+  function dailyBreakdown(cycle, today) {
+    const totalDays = cycle.start && cycle.end ? daysBetween(cycle.start, cycle.end) + 1 : null;
+    const limit = totalDays ? round2(BUDGET / totalDays) : null;
+    const map = new Map();
+    (cycle.rows || []).forEach((r) => {
+      if (r.type !== EXPENSE || !Number.isFinite(r.amount)) return;
+      const key = parseYmd(r.date) ? String(r.date) : '-';
+      if (!map.has(key)) map.set(key, { date: key, total: 0, rows: [] });
+      const day = map.get(key);
+      day.total += r.amount;
+      day.rows.push(r);
+    });
+    const days = [...map.values()].map((d) => {
+      const total = round2(d.total);
+      const over = limit != null && total > limit;
+      return { ...d, total, over, overBy: over ? round2(total - limit) : 0 };
+    }).sort((a, b) => b.date.localeCompare(a.date));
+    const elapsed = totalDays ? Math.max(0, Math.min(totalDays, daysBetween(cycle.start, today) + 1)) : null;
+    return { limit, days, overCount: days.filter((d) => d.over).length, elapsed };
+  }
+
   // ชื่อรอบตามบล็อก Fix cost เช่น คีย์ 2026-10 = รอบ พ.ย. 2026
   const cycleName = (key) => (lang === 'en' ? `${fmtYm(ymAdd(key, 1))} cycle` : `รอบ ${fmtYm(ymAdd(key, 1))}`);
 
@@ -210,27 +232,12 @@
     return { items, now, timeline, pending: items.filter((i) => i.firstMonth > block) };
   }
 
-  // ข้อมูลกราฟพื้นที่ซ้อน: รายเดือนตั้งแต่บล็อกปัจจุบันถึงงวดสุดท้าย ก้อนที่หมดช้าสุดอยู่ล่างสุด
-  function installmentStack(summary, today) {
-    const block = fixYmOf(today);
-    const live = summary.items.filter((i) => i.endMonth >= block);
-    if (!live.length) return { months: [], series: [], totals: [] };
-    const end = live.reduce((m, i) => (i.endMonth > m ? i.endMonth : m), block);
-    const months = [];
-    for (let ym = block; ym <= end; ym = ymAdd(ym, 1)) months.push(ym);
-    const series = [...live]
-      .sort((a, b) => b.endMonth.localeCompare(a.endMonth))
-      .map((i) => ({ name: i.name, monthly: i.monthly, values: months.map((ym) => (i.firstMonth <= ym && ym <= i.endMonth ? i.monthly : 0)) }));
-    const totals = months.map((_, m) => round2(series.reduce((a, s) => a + s.values[m], 0)));
-    return { months, series, totals };
-  }
-
   const api = {
     PAY_DAY, BUDGET, TH_MONTHS, CATEGORIES, EXPENSE, INCOME,
     round2, parseYmd, ymOf, ymAdd, ymDay, daysBetween,
     fmtDayMonth, fmtDate, fmtYm, fmtYmLong, fmtRange,
     cycleKeyOf, budgetPeriod, fixYmOf, fixPeriod, nextPayday, parseCycleLabel, resolveCycle,
-    buildCycles, budgetSummary, cycleName, setLang, thDayMonth, installmentStatus, installmentSummary, installmentStack,
+    buildCycles, budgetSummary, dailyBreakdown, cycleName, setLang, thDayMonth, installmentStatus, installmentSummary,
   };
   root.Calc = api;
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
