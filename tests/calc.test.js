@@ -164,12 +164,15 @@ test('ชื่อรอบตามบล็อก Fix cost', () => {
   assert.equal(C.cycleName('2026-12'), 'รอบ ม.ค. 2027');
 });
 
-test('จุดของกราฟยอดผ่อนเริ่มจากยอดตอนนี้', () => {
+test('ข้อมูลกราฟซ้อน: เริ่มจากบล็อกปัจจุบัน ก้อนที่หมดช้าสุดอยู่ล่าง และรวมก้อนที่ยังไม่เริ่มตามเดือนจริง', () => {
   const today = D('2026-11-06');
-  const s = C.installmentSummary([inst('2026-01', 24, 100), inst('2026-11', 4, 10)], today);
-  assert.deepEqual(C.installmentSteps(s, today), [
-    { ym: '2026-11', amount: 110 }, { ym: '2027-03', amount: 100 }, { ym: '2028-01', amount: 0 },
-  ]);
+  const s = C.installmentSummary([inst('2026-10', 3, 10, 'สั้น'), inst('2026-01', 12, 100, 'ยาว'), inst('2027-01', 1, 7, 'ใหม่'), inst('2025-01', 2, 5, 'จบแล้ว')], today);
+  const st = C.installmentStack(s, today);
+  assert.deepEqual(st.months, ['2026-11', '2026-12', '2027-01']);
+  assert.deepEqual(st.series.map((x) => x.name), ['ใหม่', 'สั้น', 'ยาว']);
+  assert.deepEqual(st.totals, [110, 110, 7]);
+  assert.equal(st.totals[0], s.now);
+  assert.deepEqual(C.installmentStack(C.installmentSummary([], today), today), { months: [], series: [], totals: [] });
 });
 
 

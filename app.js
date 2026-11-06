@@ -1,14 +1,13 @@
 'use strict';
 
-const APP_VERSION = '2026.11.07.12';
-const KEYS = { setup: 'fa.setup', data: 'fa.data', synced: 'fa.synced', buddy: 'fa.buddy' };
+const APP_VERSION = '2026.11.07.13';
+const KEYS = { setup: 'fa.setup', data: 'fa.data', synced: 'fa.synced', buddy: 'fa.buddy', loanChart: 'fa.loanChart' };
 
 const $ = (s, el = document) => el.querySelector(s);
 const $$ = (s, el = document) => [...el.querySelectorAll(s)];
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
 const baht = (n) => (Number.isFinite(n) ? n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '–');
-const signed = (n) => `${n > 0 ? '+' : '−'}${baht(Math.abs(n))}`;
 
 const store = {
   get(key, fallback) {
@@ -70,6 +69,7 @@ const state = {
   fixYm: null,    // เดือนที่กำลังดูในหน้า Fixed cost
   tab: 'today',
   buddy: store.get(KEYS.buddy, 'tree'),
+  loanChart: store.get(KEYS.loanChart, 'timeline'),
 };
 state.data = state.setup ? store.get(KEYS.data, null) : demoData();
 
@@ -125,6 +125,7 @@ const TABS = ['today', 'cycles', 'fixed', 'loans', 'settings'];
 // ตัวเลขสรุปปัดเป็นบาทเต็ม ส่วนรายการใช้ยอดจริง (ไม่แสดง .00)
 const whole = (n) => (Number.isFinite(n) ? Math.round(n).toLocaleString('en-US') : '–');
 const money = (n) => (Number.isInteger(n) ? whole(n) : baht(n));
+const signed = (n) => `${n > 0 ? '+' : '−'}${money(Math.abs(n))}`;
 const bigNum = (n) => { const [w, d] = baht(Math.abs(n)).split('.'); return `${n < 0 ? '−' : ''}${w}<i>.${d}</i>`; };
 // หลอดน้ำ: หลอดว่างไม่มีน้ำและไม่เรือง
 const bar = (pct) => {
@@ -273,40 +274,52 @@ function renderFixed(vm) {
 }
 
 /* ---------- การผ่อน ---------- */
-// กราฟเส้นขั้นบันได: แกนเวลาตามจริง ติดป้ายเฉพาะจุดที่ยอดเปลี่ยน รายการตัวเลขอยู่ในเดือนที่ยอดเปลี่ยน
-function stepChart(steps) {
-  if (steps.length < 2) return '';
-  const W = 340, H = 156, top = 24, bottom = 126, left = 6, right = 334, R = 8;
-  const idx = (ym) => { const [y, m] = ym.split('-').map(Number); return y * 12 + m; };
-  const t0 = idx(steps[0].ym), span = Math.max(1, idx(steps[steps.length - 1].ym) - t0);
-  const max = Math.max(...steps.map((s) => s.amount), 1);
-  const x = (s) => left + ((idx(s.ym) - t0) / span) * (right - left);
-  const y = (a) => bottom - (a / max) * (bottom - top);
-  // มุมบนของแต่ละขั้นโค้ง ส่วนมุมล่างเป็นตำแหน่งจุดพอดี
-  let d = `M${x(steps[0]).toFixed(1)} ${y(steps[0].amount).toFixed(1)}`;
-  steps.slice(1).forEach((s, i) => {
-    const px = x(s), from = y(steps[i].amount), to = y(s.amount);
-    const r = Math.min(R, Math.abs(to - from) / 2, (px - x(steps[i])) / 2);
-    const sign = to >= from ? 1 : -1;
-    d += `H${(px - r).toFixed(1)}Q${px.toFixed(1)} ${from.toFixed(1)} ${px.toFixed(1)} ${(from + sign * r).toFixed(1)}V${to.toFixed(1)}`;
-  });
-  const area = `${d}V${bottom}H${left}Z`;
-  let lastX = -999;
-  const labels = steps.map((s, i) => {
-    const px = x(s);
-    const last = i === steps.length - 1;
-    const anchor = last ? 'end' : 'start';
-    const showDate = last || px - lastX > 62;
-    if (showDate) lastX = px;
-    const vy = Math.max(12, y(s.amount) - 9);
-    return `<text class="val" x="${(last ? right - 10 : px + 2).toFixed(1)}" y="${vy.toFixed(1)}" text-anchor="${anchor}">${Math.round(s.amount).toLocaleString('en-US')}</text>`
-      + (showDate ? `<text x="${(last ? right : px).toFixed(1)}" y="${H - 8}" text-anchor="${anchor}">${esc(Calc.fmtYm(s.ym))}</text>` : '');
+// ไทม์ไลน์: อ่านเป็นลำดับเหตุการณ์ว่าเดือนไหนยอดเปลี่ยนเท่าไร
+function loanTimeline(monthly, timeline) {
+  if (!timeline.length) return `<p class="empty">${t('no_changes')}</p>`;
+  const what = (e) => [...e.started.map((n) => t('tl_start', n)), ...e.ended.map((n) => t('tl_end', n))].join(' · ');
+  return `<ol class="events">
+    <li class="now"><i></i><b>${t('now')}</b><span class="ev-amt">${money(monthly)}</span></li>
+    ${timeline.map((e) => `<li><i></i><b>${esc(Calc.fmtYm(e.ym))}</b><span class="ev-amt">${signed(e.delta)}</span>
+      <small>${esc(what(e))}</small><small class="ev-left">${e.after > 0 ? t('tl_left', money(e.after)) : t('debt_free')}</small></li>`).join('')}
+  </ol>`;
+}
+
+// พื้นที่ซ้อน: ความสูงรวมคือยอดต่อเดือน แต่ละชั้นคือหนึ่งรายการ ใช้สีหลักไล่อ่อนลงตามลำดับ มีคำอธิบายชื่อและยอดใต้กราฟ
+const STACK_SHADES = [100, 74, 54, 36, 22];
+const stackColor = (i) => `color-mix(in srgb, var(--accent) ${STACK_SHADES[Math.min(i, STACK_SHADES.length - 1)]}%, var(--panel))`;
+
+function loanStack(stack) {
+  const { months, series, totals } = stack;
+  if (!months.length) return `<p class="empty">${t('no_changes')}</p>`;
+  const W = 340, H = 150, top = 22, base = 126;
+  const max = Math.max(...totals, 1);
+  const n = months.length;
+  const x = (i) => (i / n) * W;
+  const y = (v) => base - (v / max) * (base - top);
+  const stepTop = (values) => values.map((v, i) => `${i ? 'H' : 'M'}${x(i).toFixed(1)}${i ? `V${y(v).toFixed(1)}` : ` ${y(v).toFixed(1)}`}`).join('') + `H${W}`;
+  let floor = months.map(() => 0);
+  const layers = series.map((s, si) => {
+    const tops = floor.map((f, m) => f + s.values[m]);
+    let back = `V${y(floor[n - 1]).toFixed(1)}`;
+    for (let m = n - 1; m >= 0; m -= 1) {
+      back += `H${x(m).toFixed(1)}`;
+      if (m > 0) back += `V${y(floor[m - 1]).toFixed(1)}`;
+    }
+    floor = tops;
+    return `<path class="layer" d="${stepTop(tops)}${back}Z" style="fill:${stackColor(si)}"/>`;
   }).join('');
-  const dots = steps.map((s, i) => `<circle class="dot ${i ? '' : 'now'}" cx="${x(s).toFixed(1)}" cy="${y(s.amount).toFixed(1)}" r="${i ? 4 : 5.5}"/>`).join('');
+  const surface = stepTop(totals);
+  const legend = series.map((s, si) => `<li><i style="background:${stackColor(si)}"></i><span>${esc(s.name)}</span><b>${money(s.monthly)}</b></li>`).join('');
   return `<div class="chart"><svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(t('chart_aria'))}">
-    <defs><linearGradient id="waterGrad" x1="0" y1="0" x2="0" y2="1"><stop class="w-top" offset="0"/><stop class="w-low" offset="1"/></linearGradient><filter id="lineSoft" x="-5%" y="-30%" width="110%" height="160%"><feGaussianBlur stdDeviation="3"/></filter></defs>
-    <path class="area" d="${area}"/><path class="glow" d="${d}" filter="url(#lineSoft)"/><path class="line" d="${d}"/><path class="spark" d="${d}" pathLength="100"/>${dots}${labels}
-  </svg></div>`;
+    <defs><filter id="lineSoft" x="-5%" y="-30%" width="110%" height="160%"><feGaussianBlur stdDeviation="3"/></filter></defs>
+    <line class="grid" x1="0" x2="${W}" y1="${base}" y2="${base}"/>
+    ${layers}
+    <path class="glow" d="${surface}" filter="url(#lineSoft)"/><path class="line" d="${surface}"/><path class="spark" d="${surface}" pathLength="100"/>
+    <text class="val" x="1" y="${(y(totals[0]) - 7).toFixed(1)}">${whole(totals[0])}</text>
+    <text x="1" y="${H - 8}">${esc(Calc.fmtYm(months[0]))}</text>
+    <text x="${W - 1}" y="${H - 8}" text-anchor="end">${esc(Calc.fmtYm(months[n - 1]))}</text>
+  </svg><ul class="legend">${legend}</ul></div>`;
 }
 
 const fact = (k, v) => `<div><span>${esc(k)}</span><b>${v}</b></div>`;
@@ -328,13 +341,6 @@ function renderLoans(vm) {
   const { items, now: monthly, timeline, pending } = vm.loans;
   if (!items.length) { el.innerHTML = `<p class="empty-state">${t('no_loans')}</p>`; return; }
   const active = items.filter((i) => !i.done);
-  const tl = timeline.map((e) => {
-    const what = [...e.started.map((n) => t('tl_start', n)), ...e.ended.map((n) => t('tl_end', n))].join(' · ');
-    return `<li>
-      <b>${esc(Calc.fmtYm(e.ym))}</b><span class="delta">${signed(e.delta)}</span>
-      <small>${esc(what)}</small><small>${t('tl_left', baht(e.after))}</small>
-    </li>`;
-  }).join('');
   el.innerHTML = `<section class="panel balance">
       ${buddy(vm.budget)}
       <span>${t('per_month')}</span>
@@ -344,10 +350,28 @@ function renderLoans(vm) {
     <section class="panel list">
       ${active.length ? active.map((i) => loanRow(i)).join('') : `<p class="empty">${t('no_active')}</p>`}
     </section>
-    <section class="panel list">
-      ${stepChart(Calc.installmentSteps(vm.loans, vm.now))}
-      ${tl ? `<details><summary><span class="row-name">${t('changes')}</span>${CHEV_D}</summary><ul class="tl">${tl}</ul></details>` : `<p class="empty">${t('no_changes')}</p>`}
+    <section class="panel loan-charts">
+      <div class="segmented small" id="chartSeg">
+        <i class="seg-glider" aria-hidden="true"></i>
+        <button type="button" data-chart="timeline">${t('chart_timeline')}</button>
+        <button type="button" data-chart="stack">${t('chart_stack')}</button>
+      </div>
+      ${state.loanChart === 'stack' ? loanStack(Calc.installmentStack(vm.loans, vm.now)) : loanTimeline(monthly, timeline)}
     </section>`;
+  const seg = $('#chartSeg');
+  markSeg(seg, state.loanChart, 'chart');
+  dragSelect(seg, {
+    names: () => ['timeline', 'stack'],
+    preview: (name) => markSeg(seg, name, 'chart'),
+    commit: pickLoanChart,
+    restore: () => markSeg(seg, state.loanChart, 'chart'),
+  });
+}
+
+function pickLoanChart(name) {
+  state.loanChart = name;
+  store.set(KEYS.loanChart, name);
+  renderLoans(viewModel());
 }
 
 /* ---------- สลับหน้า ---------- */
@@ -754,6 +778,8 @@ document.addEventListener('click', (e) => {
     setTimeout(() => pet.classList.remove(cls), cls === 'bliss' ? 1700 : 800);
     return;
   }
+  const chart = e.target.closest('[data-chart]');
+  if (chart) { pickLoanChart(chart.dataset.chart); return; }
   const tab = e.target.closest('[data-tab]');
   if (tab) { showTab(tab.dataset.tab); return; }
   const goto = e.target.closest('[data-goto]');
