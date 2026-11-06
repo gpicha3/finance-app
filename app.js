@@ -1,6 +1,6 @@
 'use strict';
 
-const APP_VERSION = '2026.11.06';
+const APP_VERSION = '2026.11.06.2';
 const KEYS = { setup: 'fa.setup', data: 'fa.data', synced: 'fa.synced' };
 
 const $ = (s, el = document) => el.querySelector(s);
@@ -47,7 +47,7 @@ function demoData() {
     items: [{ name: 'Rent', amount: 8000 }, { name: 'Utilities', amount: 1000 }, { name: 'Living', amount: 6400 }, { name: 'Phone', amount: 500 }, { name: 'Loan', amount: 5600 }, { name: 'Shopee', amount: shopee }, { name: 'Other', amount: shopee == null ? null : 0 }],
   });
   return {
-    fixCost: [block(prev, 320), block(key, 410), block(Calc.ymAdd(key, 1), null)],
+    fixCost: [block(key, 320), block(Calc.ymAdd(key, 1), 410), block(Calc.ymAdd(key, 2), null)],
     daily: [
       row(key, 26, 'กิน', 'ข้าวเที่ยง', 80), row(key, 27, 'เดินทาง', 'รถไฟฟ้า', 45), row(key, 28, 'ของใช้', 'ของใช้ในบ้าน', 260),
       row(key, 28, 'อื่นๆ', 'คืนเงินเพื่อน', 300, Calc.INCOME),
@@ -137,7 +137,8 @@ function viewModel() {
   const cycles = Calc.buildCycles(data?.daily || [], now);
   const loans = Calc.installmentSummary(data?.installments || [], now);
   const blocks = data?.fixCost || [];
-  return { now, key, cycles, current: cycles.find((c) => c.key === key), loans, blocks, block: blocks.find((b) => b.ym === key) };
+  const fixYm = Calc.fixYmOf(now);
+  return { now, key, fixYm, cycles, current: cycles.find((c) => c.key === key), loans, blocks, block: blocks.find((b) => b.ym === fixYm) };
 }
 
 /* ---------- หน้าแรก ---------- */
@@ -176,12 +177,12 @@ function renderHome(vm) {
 
 function renderHomeFixed(vm) {
   const blk = vm.block;
-  const range = Calc.payPeriod(vm.key);
+  const range = Calc.fixPeriod(vm.fixYm);
   const body = blk
     ? `${kv('รายรับ', baht(blk.income))}${kv('Fixed cost', baht(blk.total))}${kv('เงินเหลือ', baht(blk.balance), 'total', blk.balance < 0 ? 'bad' : '')}${blk.items.some((i) => i.amount == null) ? '<p class="hint">มีบางรายการยังไม่ระบุยอด</p>' : ''}`
     : '<p class="empty-line">ไม่มีบล็อกของเดือนนี้ในแท็บ Fix cost</p>';
-  return `<button class="card" data-open-fixed="${vm.key}" type="button">
-    <div class="card-head"><h2>รายรับ − Fixed cost</h2><small>${esc(Calc.fmtYmLong(vm.key))}</small></div>
+  return `<button class="card" data-open-fixed="${vm.fixYm}" type="button">
+    <div class="card-head"><h2>รายรับ − Fixed cost</h2><small>${esc(Calc.fmtYmLong(vm.fixYm))}</small></div>
     <div class="hint">${esc(Calc.fmtRange(range.start, range.end))}</div>
     ${body}
   </button>`;
@@ -243,13 +244,13 @@ function renderFixed(vm) {
   const list = vm.blocks;
   if (!list.length) { el.innerHTML = '<p class="empty-state">ไม่มีข้อมูลในแท็บ Fix cost</p>'; return; }
   let idx = list.findIndex((b) => b.ym === state.fixYm);
-  if (idx < 0) idx = list.findIndex((b) => b.ym === vm.key);
+  if (idx < 0) idx = list.findIndex((b) => b.ym === vm.fixYm);
   if (idx < 0) idx = list.length - 1;
   const b = list[idx];
   state.fixYm = b.ym;
-  const range = Calc.payPeriod(b.ym);
-  const tag = b.ym === vm.key ? '<span class="badge">รอบปัจจุบัน</span>'
-    : `<span class="badge muted">${b.ym > vm.key ? 'เดือนอนาคต' : 'ย้อนหลัง'}</span><button class="text-link" data-fix-now>กลับรอบปัจจุบัน</button>`;
+  const range = Calc.fixPeriod(b.ym);
+  const tag = b.ym === vm.fixYm ? '<span class="badge">รอบปัจจุบัน</span>'
+    : `<span class="badge muted">${b.ym > vm.fixYm ? 'เดือนอนาคต' : 'ย้อนหลัง'}</span><button class="text-link" data-fix-now>กลับรอบปัจจุบัน</button>`;
   const blanks = b.items.filter((i) => i.amount == null).length;
   el.innerHTML = `${pager('fixPager', Calc.fmtYmLong(b.ym), `${esc(Calc.fmtRange(range.start, range.end))}<br>${tag}`, idx > 0, idx < list.length - 1)}
     <section class="card">
@@ -290,11 +291,10 @@ function loanCard(i) {
 
 function renderLoans(vm) {
   const el = $('#loansBody');
-  const { items, now: monthly, timeline } = vm.loans;
+  const { items, now: monthly, timeline, pending } = vm.loans;
   if (!items.length) { el.innerHTML = '<p class="empty-state">ไม่มีข้อมูลในแท็บ Installments</p>'; return; }
   const active = items.filter((i) => !i.done);
   const done = items.filter((i) => i.done);
-  const pending = items.filter((i) => !i.started);
   const tl = timeline.map((e) => {
     const what = [...e.started.map((n) => `เริ่ม ${n}`), ...e.ended.map((n) => `${n} หมด`)].join(' · ');
     return `<li>
@@ -305,7 +305,7 @@ function renderLoans(vm) {
   el.innerHTML = `<section class="card">
       <div class="hint">ยอดผ่อนรวมต่อเดือนตอนนี้</div>
       <div class="big">${baht(monthly)}<small>บาท</small></div>
-      ${pending.length ? `<p class="hint">ยังไม่รวม ${esc(pending.map((i) => i.name).join(', '))} ที่ยังไม่ถึงงวดแรก</p>` : ''}
+      ${pending.length ? `<p class="hint">ยังไม่รวม ${esc(pending.map((i) => i.name).join(', '))} ที่ยังไม่ถึงรอบงวดแรก</p>` : ''}
     </section>
     <h3 class="section-title">ยอดต่อเดือนจะเปลี่ยนเมื่อไร</h3>
     <section class="card">${tl ? `<ul class="tl">${tl}</ul>` : '<p class="empty-line">ไม่มีการเปลี่ยนแปลงข้างหน้า</p>'}</section>

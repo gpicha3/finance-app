@@ -14,8 +14,18 @@ test('รอบเงินเดือน: ก่อน 25 อยู่รอ�
   assert.equal(C.cycleKeyOf(D('2027-01-10')), '2026-12');
 });
 
+test('บล็อก Fix cost ชื่อตามเดือนที่รอบสิ้นสุด', () => {
+  assert.equal(C.fixYmOf(D('2026-10-24')), '2026-10');
+  assert.equal(C.fixYmOf(D('2026-10-25')), '2026-11');
+  assert.equal(C.fixYmOf(D('2026-11-06')), '2026-11');
+  assert.equal(C.fixYmOf(D('2026-11-24')), '2026-11');
+  assert.equal(C.fixYmOf(D('2026-11-25')), '2026-12');
+  assert.equal(C.fixYmOf(D('2026-12-30')), '2027-01');
+});
+
 test('ช่วงรอบ: Fix cost เริ่ม 25 / งบเริ่ม 26', () => {
-  assert.equal(C.fmtRange(C.payPeriod('2026-11').start, C.payPeriod('2026-11').end), '25 พ.ย. – 24 ธ.ค. 2026');
+  assert.equal(C.fmtRange(C.fixPeriod('2026-11').start, C.fixPeriod('2026-11').end), '25 ต.ค. – 24 พ.ย. 2026');
+  assert.equal(C.fmtRange(C.fixPeriod('2027-01').start, C.fixPeriod('2027-01').end), '25 ธ.ค. 2026 – 24 ม.ค. 2027');
   assert.equal(C.fmtRange(C.budgetPeriod('2026-10').start, C.budgetPeriod('2026-10').end), '26 ต.ค. – 24 พ.ย. 2026');
   assert.equal(C.fmtRange(C.budgetPeriod('2026-12').start, C.budgetPeriod('2026-12').end), '26 ธ.ค. 2026 – 24 ม.ค. 2027');
 });
@@ -121,15 +131,25 @@ test('งวดผ่อน: ยังไม่เริ่ม และผ่�
 });
 
 test('ไทม์ไลน์ยอดผ่อนต่อเดือน', () => {
-  const list = [inst('2026-01', 24, 100, 'ยาว'), inst('2026-10', 3, 50, 'สั้น'), inst('2026-11', 4, 10, 'ใหม่'), inst('2025-01', 3, 999, 'หมดแล้ว')];
-  const s = C.installmentSummary(list, D('2026-11-06'));
-  assert.equal(s.now, 150); // ไม่รวม "ใหม่" (ยังไม่เริ่ม) และ "หมดแล้ว"
+  const list = [inst('2026-01', 24, 100, 'ยาว'), inst('2026-10', 3, 50, 'สั้น'), inst('2026-11', 4, 10, 'รอบนี้'), inst('2026-12', 2, 7, 'รอบหน้า'), inst('2025-01', 3, 999, 'หมดแล้ว')];
+  const s = C.installmentSummary(list, D('2026-11-06')); // รอบนี้คือบล็อก 2026-11
+  assert.equal(s.now, 160); // รวม "รอบนี้" แม้สถานะยัง 0 งวด ไม่รวม "รอบหน้า" และ "หมดแล้ว"
+  assert.equal(s.items.find((i) => i.name === 'รอบนี้').paid, 0);
+  assert.deepEqual(s.pending.map((i) => i.name), ['รอบหน้า']);
   assert.deepEqual(s.timeline.map((e) => [e.ym, e.delta, e.after]), [
-    ['2026-11', 10, 160],
-    ['2027-01', -50, 110],
+    ['2026-12', 7, 167],
+    ['2027-01', -50, 117],
+    ['2027-02', -7, 110],
     ['2027-03', -10, 100],
     ['2028-01', -100, 0],
   ]);
-  assert.deepEqual(s.timeline[0].started, ['ใหม่']);
+  assert.deepEqual(s.timeline[0].started, ['รอบหน้า']);
   assert.deepEqual(s.timeline[1].ended, ['สั้น']);
+});
+
+test('ยอดผ่อนต่อเดือนตรงกับบล็อกตลอดรอบ และเปลี่ยนตอนขึ้นรอบใหม่วันที่ 25', () => {
+  const list = [inst('2026-01', 24, 100, 'ยาว'), inst('2026-10', 2, 50, 'สั้น')]; // "สั้น" อยู่ถึงบล็อก 2026-11
+  assert.equal(C.installmentSummary(list, D('2026-11-24')).now, 150);
+  assert.equal(C.installmentSummary(list, D('2026-11-25')).now, 100);
+  assert.equal(C.installmentSummary(list, D('2026-11-25')).timeline.some((e) => e.ended.includes('สั้น')), false);
 });

@@ -1,9 +1,10 @@
 'use strict';
 // การคำนวณล้วน ๆ (ไม่แตะหน้าจอ) ใช้ทั้งในแอปและใน tests/calc.test.js
 //
-// กติการอบ: คีย์รอบ "YYYY-MM" = เดือน X
-//   - บล็อก Fix cost เดือน X   = 25 X ถึง 24 ของเดือนถัดไป
-//   - รอบงบ Daily Log ของเดือน X = 26 X ถึง 24 ของเดือนถัดไป
+// กติการอบ: คีย์รอบ "YYYY-MM" = เดือนที่เงินเดือนเข้าตอนเริ่มรอบ (เดือน X)
+//   - รอบงบ Daily Log ของคีย์ X = 26 X ถึง 24 ของเดือนถัดไป
+//   - บล็อก Fix cost ของรอบนั้น = เดือนถัดไปของ X (ชื่อตามเดือนที่รอบสิ้นสุด)
+//     เช่น รอบ 25 ต.ค. – 24 พ.ย. 2026 = บล็อก November 2026
 //   - วันที่ 25 (เงินเดือนเข้า) นับเป็นรอบใหม่แล้ว
 (function (root) {
   const PAY_DAY = 25;
@@ -43,7 +44,9 @@
   /* ---------- รอบเงินเดือน ---------- */
   const cycleKeyOf = (d) => (d.getDate() >= PAY_DAY ? ymOf(d) : ymAdd(ymOf(d), -1));
   const budgetPeriod = (key) => ({ start: ymDay(key, PAY_DAY + 1), end: ymDay(ymAdd(key, 1), PAY_DAY - 1) });
-  const payPeriod = (key) => ({ start: ymDay(key, PAY_DAY), end: ymDay(ymAdd(key, 1), PAY_DAY - 1) });
+  // บล็อก Fix cost: fixYm = ชื่อบล็อกในแท็บ Fix cost
+  const fixYmOf = (d) => ymAdd(cycleKeyOf(d), 1);
+  const fixPeriod = (fixYm) => ({ start: ymDay(ymAdd(fixYm, -1), PAY_DAY), end: ymDay(fixYm, PAY_DAY - 1) });
   const nextPayday = (today) => ymDay(ymAdd(cycleKeyOf(today), 1), PAY_DAY);
 
   const MONTH_INDEX = Object.fromEntries(TH_MONTHS.map((m, i) => [m.replace(/\./g, ''), i]));
@@ -147,29 +150,32 @@
     };
   }
 
-  // ยอดต่อเดือนตอนนี้ = รายการที่เริ่มตัดแล้วและยังไม่หมด / ไทม์ไลน์ = เดือนที่ยอดเปลี่ยน พร้อมยอดหลังเปลี่ยน
+  // ยอดต่อเดือนตอนนี้ = รายการที่อยู่ในบล็อก Fix cost ของรอบปัจจุบัน (เดือนงวดตรงกับชื่อบล็อก)
+  // ไทม์ไลน์ = บล็อกข้างหน้าที่ยอดเปลี่ยน พร้อมยอดหลังเปลี่ยน
   function installmentSummary(list, today) {
     const items = list.map((i) => installmentStatus(i, today));
-    const now = round2(items.filter((i) => i.started && !i.done).reduce((a, i) => a + i.monthly, 0));
+    const block = fixYmOf(today);
+    const now = round2(items.filter((i) => i.firstMonth <= block && block <= i.endMonth).reduce((a, i) => a + i.monthly, 0));
     const events = new Map();
     const event = (ym) => { if (!events.has(ym)) events.set(ym, { ym, delta: 0, started: [], ended: [] }); return events.get(ym); };
     items.forEach((i) => {
-      if (!i.started) { const e = event(i.firstMonth); e.delta += i.monthly; e.started.push(i.name); }
-      if (!i.done) { const e = event(ymAdd(i.endMonth, 1)); e.delta -= i.monthly; e.ended.push(i.name); }
+      const after = ymAdd(i.endMonth, 1);
+      if (i.firstMonth > block) { const e = event(i.firstMonth); e.delta += i.monthly; e.started.push(i.name); }
+      if (after > block) { const e = event(after); e.delta -= i.monthly; e.ended.push(i.name); }
     });
     let running = now;
     const timeline = [...events.values()].sort((a, b) => a.ym.localeCompare(b.ym)).map((e) => {
       running = round2(running + e.delta);
       return { ...e, delta: round2(e.delta), after: running };
     });
-    return { items, now, timeline };
+    return { items, now, timeline, pending: items.filter((i) => i.firstMonth > block) };
   }
 
   const api = {
     PAY_DAY, BUDGET, TH_MONTHS, CATEGORIES, EXPENSE, INCOME,
     round2, parseYmd, ymOf, ymAdd, ymDay, daysBetween,
     fmtDayMonth, fmtDate, fmtYm, fmtYmLong, fmtRange,
-    cycleKeyOf, budgetPeriod, payPeriod, nextPayday, parseCycleLabel, resolveCycle,
+    cycleKeyOf, budgetPeriod, fixYmOf, fixPeriod, nextPayday, parseCycleLabel, resolveCycle,
     buildCycles, budgetSummary, installmentStatus, installmentSummary,
   };
   root.Calc = api;
