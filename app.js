@@ -1,6 +1,6 @@
 'use strict';
 
-const APP_VERSION = '2026.11.06.5';
+const APP_VERSION = '2026.11.07.1';
 const KEYS = { setup: 'fa.setup', data: 'fa.data', synced: 'fa.synced' };
 
 const $ = (s, el = document) => el.querySelector(s);
@@ -120,24 +120,60 @@ async function sync({ quiet = false } = {}) {
 /* ---------- ส่วนที่ใช้ร่วมกัน ---------- */
 const CHEV_L = '<svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg>';
 const CHEV_R = '<svg viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg>';
+const CHEV_D = '<svg class="chev" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg>';
 const ICON_OK = '<svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>';
 const ICON_UP = '<svg viewBox="0 0 24 24"><path d="M12 19V5M6 11l6-6 6 6"/></svg>';
 const ICON_ALERT = '<svg viewBox="0 0 24 24"><path d="M12 4v10M12 19v.5"/></svg>';
 const TITLES = { today: 'วันนี้', cycles: 'รอบเงินเดือน', fixed: 'Fixed cost', loans: 'การผ่อน' };
 
-const bar = (pct, extra = '', color = '') => `<div class="bar ${extra}"><i class="${color}" style="width:${Math.max(0, Math.min(100, pct)).toFixed(1)}%"></i></div>`;
+// ตัวเลขสรุปปัดเป็นบาทเต็ม ส่วนรายการใช้ยอดจริง (ไม่แสดง .00)
+const whole = (n) => (Number.isFinite(n) ? Math.round(n).toLocaleString('en-US') : '–');
+const money = (n) => (Number.isInteger(n) ? whole(n) : baht(n));
+const bigNum = (n) => { const [w, d] = baht(Math.abs(n)).split('.'); return `${n < 0 ? '−' : ''}${w}<i>.${d}</i>`; };
+const bar = (pct, color = '') => `<div class="bar"><i class="${color}" style="width:${Math.max(0, Math.min(100, pct)).toFixed(1)}%"></i></div>`;
 // สีตามลำดับรายการในแท็บ Installments ไม่เปลี่ยนเมื่อบางรายการผ่อนหมด รายการที่ 5 เป็นต้นไปใช้สีกลาง
 const loanColor = (items, item) => { const i = items.indexOf(item); return i >= 0 && i < 4 ? `c${i + 1}` : ''; };
-const sum = (label, value, cls = '') => `<div class="sum"><span>${esc(label)}</span><b class="${cls}">${value}</b></div>`;
-const pager = (id, title, sub, tag, hasPrev, hasNext) => `<div class="pager" id="${id}">
+const pager = (id, title, sub, back, hasPrev, hasNext) => `<div class="pager" id="${id}">
   <button class="icon-btn" data-step="-1" aria-label="ก่อนหน้า" ${hasPrev ? '' : 'disabled'}>${CHEV_L}</button>
   <div class="pager-title"><b>${esc(title)}</b><small>${esc(sub)}</small></div>
   <button class="icon-btn" data-step="1" aria-label="ถัดไป" ${hasNext ? '' : 'disabled'}>${CHEV_R}</button>
-</div><div class="pager-tag">${tag}</div>`;
+</div>${back ? `<div class="pager-back">${back}</div>` : ''}`;
 const isNamed = (c) => !c.key.startsWith('x:');
 const cycleTitle = (c) => (isNamed(c) ? Calc.cycleName(c.key) : (c.label || 'ไม่ระบุรอบ'));
 const cycleRange = (c) => (c.start ? Calc.fmtRange(c.start, c.end) : 'อ่านช่วงวันที่ไม่ได้');
 const dayLabel = (s) => { const d = Calc.parseYmd(s); return d ? Calc.fmtDate(d) : esc(s); };
+
+/* ---------- ตัวการ์ตูน: หยดน้ำใส ถือของตามหน้า อารมณ์เปลี่ยนตามตัวเลข ---------- */
+const MOUTHS = { happy: 'M42 66Q50 75 58 66', worried: 'M43 69Q50 65 57 69', sad: 'M42 72Q50 63 58 72' };
+const PROPS = {
+  today: '<circle cx="101" cy="39" r="13" fill="#f6c445" stroke="#c98f12" stroke-width="2.5"/><text x="101" y="44.5" text-anchor="middle" font-size="15" font-weight="700" fill="#8a5a00">฿</text>',
+  cycles: '<rect x="88" y="26" width="27" height="27" rx="5" fill="#fff"/><path d="M88 31a5 5 0 0 1 5-5h17a5 5 0 0 1 5 5v5H88z" fill="#ef5b5b"/><path d="M95 42h4M104 42h4M95 47h4" stroke="#55606b" stroke-width="2.4" stroke-linecap="round"/>',
+  fixed: '<path d="M90 24h24v30l-4-3-4 3-4-3-4 3-4-3-4 3z" fill="#fff"/><path d="M95 32h14M95 38h14M95 44h8" stroke="#55606b" stroke-width="2.2" stroke-linecap="round"/>',
+  loans: '<rect x="85" y="28" width="32" height="22" rx="4" fill="#46505e" stroke="#fff" stroke-width="1.5"/><rect x="85.8" y="33" width="30.4" height="5" fill="#20262e"/><rect x="90" y="42" width="8" height="4" rx="1" fill="#f6c445"/>',
+};
+function mascot(page, mood = 'happy') {
+  const id = `mascot-${page}`;
+  return `<span class="mascot ${page} ${mood}" data-mascot aria-hidden="true"><svg viewBox="0 0 120 100">
+    <defs><linearGradient id="${id}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff" stop-opacity=".72"/><stop offset=".45" stop-color="#fff" stop-opacity=".14"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient></defs>
+    <ellipse class="m-shadow" cx="50" cy="95" rx="24" ry="3.5"/>
+    <g class="m-all">
+      <path class="m-limb m-wave" d="M20 62Q8 58 8 45"/>
+      <g class="m-prop">${PROPS[page]}</g>
+      <path class="m-limb" d="M80 63Q92 60 95 52"/>
+      <ellipse class="m-foot" cx="39" cy="89" rx="8" ry="4"/><ellipse class="m-foot" cx="61" cy="89" rx="8" ry="4"/>
+      <path class="m-drop" d="M50 7C60 24 84 38 84 58C84 77 69 89 50 89C31 89 16 77 16 58C16 38 40 24 50 7Z"/>
+      <path d="M50 7C60 24 84 38 84 58C84 77 69 89 50 89C31 89 16 77 16 58C16 38 40 24 50 7Z" fill="url(#${id})"/>
+      <ellipse cx="33" cy="47" rx="5" ry="9" transform="rotate(24 33 47)" fill="#fff" opacity=".65"/>
+      <ellipse cx="29" cy="65" rx="5" ry="3" fill="#ff8fa8" opacity=".55"/><ellipse cx="71" cy="65" rx="5" ry="3" fill="#ff8fa8" opacity=".55"/>
+      <g class="m-eyes">
+        <ellipse cx="39" cy="56" rx="6.5" ry="7.5" fill="#fff"/><ellipse cx="61" cy="56" rx="6.5" ry="7.5" fill="#fff"/>
+        <ellipse cx="40" cy="57" rx="3.6" ry="4.6" fill="#16202a"/><ellipse cx="62" cy="57" rx="3.6" ry="4.6" fill="#16202a"/>
+        <circle cx="41.4" cy="55" r="1.3" fill="#fff"/><circle cx="63.4" cy="55" r="1.3" fill="#fff"/>
+      </g>
+      <path class="m-mouth" d="${MOUTHS[mood]}"/>
+    </g>
+  </svg></span>`;
+}
 
 function viewModel() {
   const data = state.data;
@@ -152,9 +188,9 @@ function viewModel() {
 
 /* ---------- วันนี้ ---------- */
 function paceStatus(b) {
-  if (b.left < 0) return { cls: 'bad', icon: ICON_ALERT, text: `ใช้เกินงบ ${baht(-b.left)}` };
-  if (b.ahead > 0) return { cls: 'warn', icon: ICON_UP, text: `ใช้เร็วกว่าแผน ${baht(b.ahead)}` };
-  return { cls: 'good', icon: ICON_OK, text: b.ahead < 0 ? `ใช้ช้ากว่าแผน ${baht(-b.ahead)}` : 'ใช้ตามแผนพอดี' };
+  if (b.left < 0) return { cls: 'bad', mood: 'sad', icon: ICON_ALERT, text: `เกินงบ ${money(-b.left)}` };
+  if (b.ahead > 0) return { cls: 'warn', mood: 'worried', icon: ICON_UP, text: `เร็วกว่าแผน ${money(b.ahead)}` };
+  return { cls: 'good', mood: 'happy', icon: ICON_OK, text: b.ahead < 0 ? `ช้ากว่าแผน ${money(-b.ahead)}` : 'ตรงตามแผน' };
 }
 
 function budgetRing(b) {
@@ -173,42 +209,35 @@ function renderToday(vm) {
     return;
   }
   const b = Calc.budgetSummary(vm.current, vm.now);
-  const [whole, dec] = baht(b.perDay).split('.');
   const st = paceStatus(b);
   const banner = !state.setup
-    ? '<div class="banner">กำลังแสดงข้อมูลตัวอย่าง <button data-open="settings">เชื่อมต่อ Google Sheet</button></div>'
-    : state.syncError ? `<div class="banner bad">อัปเดตไม่สำเร็จ (${esc(state.syncError)}) กำลังแสดงข้อมูลล่าสุดที่มี</div>` : '';
-  const invalid = vm.current.invalid ? `<p class="hint warn">มี ${vm.current.invalid} แถวในรอบนี้ที่อ่านยอดหรือประเภทไม่ได้ จึงไม่ถูกนับ</p>` : '';
+    ? '<div class="banner">ข้อมูลตัวอย่าง <button data-open="settings">เชื่อมต่อ Google Sheet</button></div>'
+    : state.syncError ? `<div class="banner bad">อัปเดตไม่สำเร็จ (${esc(state.syncError)}) แสดงข้อมูลล่าสุดที่มี</div>` : '';
+  const invalid = vm.current.invalid ? `<p class="hint warn">มี ${vm.current.invalid} แถวที่อ่านไม่ได้ จึงไม่ถูกนับ</p>` : '';
   const blk = vm.block;
-  const { items } = vm.loans;
-  const active = items.filter((i) => !i.done);
   el.innerHTML = `${banner}
     <section class="panel hero">
+      ${mascot('today', st.mood)}
       <div class="ring">
         ${budgetRing(b)}
         <div class="ring-in">
           <span>ใช้ได้วันนี้</span>
-          <div class="num ${whole.length > 3 ? 'long' : ''}">${whole}<i>.${dec}</i></div>
-          <span>อีก ${b.days} วันเงินเดือนเข้า</span>
+          <div class="num ${whole(b.perDay).length > 3 ? 'long' : ''}">${bigNum(b.perDay)}</div>
         </div>
       </div>
       <div class="status ${st.cls}">${st.icon}<span>${esc(st.text)}</span></div>
-      <div class="used-left"><span>ใช้ไป <b>${baht(b.used)}</b></span><span>${b.left < 0 ? 'เกิน' : 'เหลือ'} <b>${baht(Math.abs(b.left))}</b></span></div>
-      <div class="ring-note">งบ ${baht(b.budget)} · ขีดบนวงคือแผนถึงวันนี้ ${baht(b.planned)}</div>
+      <div class="hero-foot">${b.left < 0 ? 'เกิน' : 'เหลือ'} ${whole(Math.abs(b.left))} · เงินเข้าอีก ${b.days} วัน</div>
     </section>
     ${invalid}
     <div class="pair">
-      <button class="panel tile" data-goto="fixed" data-fix="${vm.fixYm}"><span>เหลือหลัง Fixed cost</span><b class="${blk && blk.balance < 0 ? 'bad' : ''}">${blk ? baht(blk.balance) : '–'}</b></button>
-      <button class="panel tile" data-goto="loans"><span>ผ่อนรอบนี้</span><b>${baht(vm.loans.now)}</b></button>
-    </div>
-    ${active.length ? `<button class="panel mini-grid" data-goto="loans">
-      ${active.map((i) => `<span class="mini"><b>${esc(i.name)}</b><span>${i.paid}/${i.totalMonths}</span>${bar(i.pct, '', loanColor(items, i))}</span>`).join('')}
-    </button>` : ''}`;
+      <button class="panel tile" data-goto="fixed" data-fix="${vm.fixYm}"><span>เหลือหลัง Fixed</span><b class="${blk && blk.balance < 0 ? 'bad' : ''}">${blk ? `${blk.balance < 0 ? '−' : ''}${whole(Math.abs(blk.balance))}` : '–'}</b></button>
+      <button class="panel tile" data-goto="loans"><span>ผ่อนรอบนี้</span><b>${whole(vm.loans.now)}</b></button>
+    </div>`;
 }
 
 /* ---------- รอบเงินเดือน ---------- */
 const itemRow = (r) => `<li>
-  <span class="item-name">${esc(r.item) || '–'}</span><span class="item-amt">${baht(r.amount)}</span>
+  <span class="item-name">${esc(r.item) || '–'}</span><span class="item-amt">${money(r.amount)}</span>
   <span class="item-sub">${dayLabel(r.date)}${r.note ? ` · ${esc(r.note)}` : ''}</span>
 </li>`;
 
@@ -221,24 +250,25 @@ function renderCycles(vm) {
   const c = list[idx];
   state.cycleKey = c.key;
   const left = Calc.round2(Calc.BUDGET - c.expense);
-  const tag = c.key === vm.key ? 'รอบปัจจุบัน' : 'ย้อนหลัง<button data-cycle-now>กลับรอบปัจจุบัน</button>';
-  el.innerHTML = `${pager('cyclePager', cycleTitle(c), cycleRange(c), tag, idx < list.length - 1, idx > 0)}
-    <div class="sums">
-      ${sum('รายจ่าย', baht(c.expense))}
-      ${sum('รายรับ', baht(c.income))}
-      ${sum('เหลือจากงบ', baht(left), left < 0 ? 'bad' : '')}
-    </div>
-    ${c.invalid ? `<p class="hint warn">มี ${c.invalid} แถวในรอบนี้ที่อ่านยอดหรือประเภทไม่ได้ จึงไม่ถูกนับ</p>` : ''}
-    <h3 class="section-title">รายจ่ายตามหมวด</h3>
-    ${c.categories.length ? c.categories.map((cat) => `<section class="panel">
-      <div class="panel-head"><h2>${esc(cat.name)}</h2><b>${baht(cat.total)}</b></div>
-      ${bar(c.expense > 0 ? (cat.total / c.expense) * 100 : 0)}
-      <ul class="items">${cat.rows.map(itemRow).join('')}</ul>
-    </section>`).join('') : '<section class="panel"><p class="empty">ไม่มีรายจ่ายในรอบนี้</p></section>'}
-    <h3 class="section-title">รายรับในรอบนี้</h3>
-    <section class="panel">
-      ${c.incomeRows.length ? `<div class="panel-head"><h2>รวมรายรับ</h2><b>${baht(c.income)}</b></div><ul class="items">${c.incomeRows.map(itemRow).join('')}</ul>` : '<p class="empty">ไม่มีรายการรายรับใน Daily Log ของรอบนี้</p>'}
-    </section>`;
+  const back = c.key === vm.key ? '' : '<button data-cycle-now>กลับรอบปัจจุบัน</button>';
+  el.innerHTML = `${pager('cyclePager', cycleTitle(c), cycleRange(c), back, idx < list.length - 1, idx > 0)}
+    <section class="panel balance">
+      ${mascot('cycles', left < 0 ? 'sad' : 'happy')}
+      <span>ใช้ไป</span>
+      <div class="big">${bigNum(c.expense)}</div>
+      <div class="equation ${left < 0 ? 'bad' : ''}">${left < 0 ? 'เกินงบ' : 'เหลือจากงบ'} ${whole(Math.abs(left))}${c.income ? ` · รับเพิ่ม ${whole(c.income)}` : ''}</div>
+    </section>
+    ${c.invalid ? `<p class="hint warn">มี ${c.invalid} แถวที่อ่านไม่ได้ จึงไม่ถูกนับ</p>` : ''}
+    <section class="panel list">
+      ${c.categories.length ? c.categories.map((cat) => `<details>
+        <summary><span class="row-name">${esc(cat.name)}</span><b>${money(cat.total)}</b>${CHEV_D}${bar(c.expense > 0 ? (cat.total / c.expense) * 100 : 0)}</summary>
+        <ul class="items">${cat.rows.map(itemRow).join('')}</ul>
+      </details>`).join('') : '<p class="empty">ไม่มีรายจ่ายในรอบนี้</p>'}
+    </section>
+    ${c.incomeRows.length ? `<section class="panel list"><details>
+      <summary><span class="row-name">รายรับ</span><b>${money(c.income)}</b>${CHEV_D}</summary>
+      <ul class="items">${c.incomeRows.map(itemRow).join('')}</ul>
+    </details></section>` : ''}`;
 }
 
 /* ---------- Fixed cost ---------- */
@@ -252,19 +282,16 @@ function renderFixed(vm) {
   const b = list[idx];
   state.fixYm = b.ym;
   const range = Calc.fixPeriod(b.ym);
-  const tag = b.ym === vm.fixYm ? 'รอบปัจจุบัน'
-    : `${b.ym > vm.fixYm ? 'เดือนอนาคต' : 'ย้อนหลัง'}<button data-fix-now>กลับรอบปัจจุบัน</button>`;
-  const blanks = b.items.filter((i) => i.amount == null).length;
-  const [whole, dec] = baht(Math.abs(b.balance)).split('.');
-  el.innerHTML = `${pager('fixPager', Calc.fmtYmLong(b.ym), Calc.fmtRange(range.start, range.end), tag, idx > 0, idx < list.length - 1)}
+  const back = b.ym === vm.fixYm ? '' : '<button data-fix-now>กลับรอบปัจจุบัน</button>';
+  el.innerHTML = `${pager('fixPager', Calc.fmtYmLong(b.ym), Calc.fmtRange(range.start, range.end), back, idx > 0, idx < list.length - 1)}
     <section class="panel balance">
+      ${mascot('fixed', b.balance < 0 ? 'sad' : 'happy')}
       <span>เงินเหลือ</span>
-      <div class="big ${b.balance < 0 ? 'bad' : ''}">${b.balance < 0 ? '−' : ''}${whole}.${dec}<small>บาท</small></div>
-      <div class="equation">รายรับ ${baht(b.income)} − ยอดรวม ${baht(b.total)}</div>
+      <div class="big ${b.balance < 0 ? 'bad' : ''}">${bigNum(b.balance)}</div>
+      <div class="equation">รับ ${whole(b.income)} − จ่าย ${whole(b.total)}</div>
     </section>
     <section class="panel">
-      <ul class="items">${b.items.map((i) => `<li><span class="item-name">${esc(i.name)}</span>${i.amount == null ? '<span class="item-amt none">ยังไม่ระบุ</span>' : `<span class="item-amt">${baht(i.amount)}</span>`}</li>`).join('')}</ul>
-      ${blanks ? `<p class="hint">ยอดรวมนับเฉพาะรายการที่ระบุแล้ว (ยังไม่ระบุ ${blanks} รายการ)</p>` : ''}
+      <ul class="items">${b.items.map((i) => `<li><span class="item-name">${esc(i.name)}</span>${i.amount == null ? '<span class="item-amt none">ยังไม่ระบุ</span>' : `<span class="item-amt">${money(i.amount)}</span>`}</li>`).join('')}</ul>
     </section>`;
 }
 
@@ -294,32 +321,24 @@ function stepChart(steps) {
       + (showDate ? `<text x="${(last ? right : px).toFixed(1)}" y="${H - 8}" text-anchor="${anchor}">${esc(Calc.fmtYm(s.ym))}</text>` : '');
   }).join('');
   const dots = steps.map((s) => `<circle class="dot" cx="${x(s).toFixed(1)}" cy="${y(s.amount).toFixed(1)}" r="4"/>`).join('');
-  return `<div class="chart"><svg viewBox="0 0 ${W} ${H}" role="img" aria-label="ยอดผ่อนต่อเดือนตามเวลา รายละเอียดอยู่ในรายการด้านล่าง">
+  return `<div class="chart"><svg viewBox="0 0 ${W} ${H}" role="img" aria-label="ยอดผ่อนต่อเดือนตามเวลา รายละเอียดอยู่ในรายการเดือนที่ยอดเปลี่ยน">
     <line class="grid" x1="${left}" x2="${right}" y1="${bottom}" y2="${bottom}"/>
     <path class="area" d="${area}"/><path class="line" d="${d}"/>${dots}${labels}
   </svg></div>`;
 }
 
-function loanCard(i, color) {
-  if (i.done) {
-    return `<section class="panel loan">
-      <div class="loan-head"><h2>${esc(i.name)}</h2><span>ครบ ${i.totalMonths} งวด</span></div>
-      <div class="loan-sub">จ่ายทั้งหมด ${baht(i.fullAmount)} · ผ่อนหมด ${esc(Calc.fmtYm(i.endMonth))}</div>
-    </section>`;
-  }
-  return `<section class="panel loan">
-    <div class="loan-head"><h2>${esc(i.name)}</h2><span>${Math.round(i.pct)}%</span></div>
-    <div class="loan-sub">${baht(i.monthly)} × ${i.totalMonths} งวด = ${baht(i.fullAmount)}</div>
-    ${bar(i.pct, 'thick', color)}
-    <div class="loan-cols">
-      <div class="loan-col"><h3>ผ่อนมาแล้ว</h3><p><b>${i.paid}</b> งวด · ${i.paid} เดือน</p><small>${baht(i.paidAmount)}</small></div>
-      <div class="loan-col"><h3>เหลือ</h3><p><b>${i.left}</b> งวด · อีก ${i.left} เดือน</p><small>${baht(i.leftAmount)}</small></div>
+const fact = (k, v) => `<div><span>${esc(k)}</span><b>${v}</b></div>`;
+
+function loanRow(i, color) {
+  return `<details>
+    <summary><span class="row-name">${esc(i.name)}</span><b>${i.paid}/${i.totalMonths}</b>${CHEV_D}${bar(i.pct, color)}<small>${money(i.monthly)} ต่อเดือน · หมด ${esc(Calc.fmtYm(i.endMonth))}</small></summary>
+    <div class="facts">
+      ${fact('ผ่อนแล้ว', money(i.paidAmount))}
+      ${fact('เหลือ', money(i.leftAmount))}
+      ${fact('ยอดเต็ม', money(i.fullAmount))}
+      ${fact('งวดถัดไป', esc(Calc.fmtDate(i.nextDue)))}
     </div>
-    <div class="loan-facts">
-      <div><span>งวดถัดไปตัด</span><b>${esc(Calc.fmtDate(i.nextDue))}</b></div>
-      <div><span>เดือนที่ผ่อนหมด</span><b>${esc(Calc.fmtYm(i.endMonth))}</b></div>
-    </div>
-  </section>`;
+  </details>`;
 }
 
 function renderLoans(vm) {
@@ -335,41 +354,44 @@ function renderLoans(vm) {
       <small>${esc(what)}</small><small>เหลือ ${baht(e.after)}</small>
     </li>`;
   }).join('');
-  el.innerHTML = `<section class="panel balance" style="margin-top:0">
-      <span>ยอดผ่อนรวมต่อเดือนตอนนี้</span>
-      <div class="big">${baht(monthly)}<small>บาท</small></div>
-      ${pending.length ? `<div class="equation">ยังไม่รวม ${esc(pending.map((i) => i.name).join(', '))} ที่ยังไม่ถึงรอบงวดแรก</div>` : ''}
+  el.innerHTML = `<section class="panel balance">
+      ${mascot('loans')}
+      <span>ผ่อนต่อเดือน</span>
+      <div class="big">${bigNum(monthly)}</div>
+      ${pending.length ? `<div class="equation">ยังไม่รวม ${esc(pending.map((i) => i.name).join(', '))}</div>` : ''}
     </section>
-    <h3 class="section-title">ยอดต่อเดือนจะเปลี่ยนเมื่อไร</h3>
-    <section class="panel">
+    <section class="panel list">
+      ${active.length ? active.map((i) => loanRow(i, loanColor(items, i))).join('') : '<p class="empty">ไม่มีรายการที่กำลังผ่อน</p>'}
+    </section>
+    <section class="panel list">
       ${stepChart(Calc.installmentSteps(vm.loans, vm.now))}
-      ${tl ? `<ul class="tl">${tl}</ul>` : '<p class="empty">ไม่มีการเปลี่ยนแปลงข้างหน้า</p>'}
+      ${tl ? `<details><summary><span class="row-name">เดือนที่ยอดเปลี่ยน</span>${CHEV_D}</summary><ul class="tl">${tl}</ul></details>` : '<p class="empty">ไม่มีการเปลี่ยนแปลงข้างหน้า</p>'}
     </section>
-    <h3 class="section-title">กำลังผ่อน</h3>
-    ${active.length ? active.map((i) => loanCard(i, loanColor(items, i))).join('') : '<section class="panel"><p class="empty">ไม่มีรายการที่กำลังผ่อน</p></section>'}
-    ${done.length ? `<h3 class="section-title">ผ่อนหมดแล้ว</h3>${done.map((i) => loanCard(i)).join('')}` : ''}`;
+    ${done.length ? `<section class="panel list"><details>
+      <summary><span class="row-name">ผ่อนหมดแล้ว</span><b>${done.length}</b>${CHEV_D}</summary>
+      <ul class="items">${done.map((i) => `<li><span class="item-name">${esc(i.name)}</span><span class="item-amt">${money(i.fullAmount)}</span><span class="item-sub">ครบ ${i.totalMonths} งวด · หมด ${esc(Calc.fmtYm(i.endMonth))}</span></li>`).join('')}</ul>
+    </details></section>` : ''}`;
 }
 
 /* ---------- คำอธิบายแต่ละหน้า ---------- */
 const HELP = {
   today: [
-    ['ใช้ได้วันนี้', 'งบที่เหลือหารด้วยจำนวนวันจนถึงวันเงินเดือนเข้า ถ้าใช้วันละเท่านี้ งบจะหมดพอดีวันเงินเดือนเข้า'],
-    ['อีกกี่วันเงินเดือนเข้า', 'นับจากวันนี้ถึงวันที่ 25 ครั้งถัดไป'],
+    ['ใช้ได้วันนี้', 'งบที่เหลือหารด้วยจำนวนวันจนถึงวันเงินเดือนเข้า ถ้าใช้วันละเท่านี้ งบจะหมดพอดี'],
     ['วงแหวน', 'ส่วนที่มีสีคือยอดที่ใช้ไปเทียบกับงบ 6,400 บาท จะเปลี่ยนเป็นสีแดงเมื่อใช้เกินงบ'],
-    ['ขีดบนวงแหวน', 'แผนถึงวันนี้ คิดจากการใช้งบเท่ากันทุกวันตลอดรอบ ถ้าสีเลยขีดแปลว่าใช้เร็วกว่าแผน'],
+    ['ขีดบนวงแหวน', 'แผนถึงวันนี้ คิดจากงบ × จำนวนวันที่ผ่านมารวมวันนี้ ÷ จำนวนวันทั้งรอบ ถ้าสีเลยขีดแปลว่าใช้เร็วกว่าแผน'],
     ['ป้ายเร็วหรือช้ากว่าแผน', 'ยอดที่ใช้ไปลบแผนถึงวันนี้ สีเหลืองคือเร็วกว่าแผน สีเขียวคือช้ากว่าหรือตรงแผน สีแดงคือเกินงบแล้ว'],
-    ['ใช้ไป / เหลือ', 'รายจ่ายทั้งหมดของรอบนี้จากแท็บ Daily Log และงบที่เหลือ'],
-    ['เหลือหลัง Fixed cost', 'รายรับลบรายจ่ายประจำของรอบนี้จากแท็บ Fix cost กดเพื่อดูรายการ'],
+    ['เหลือ · เงินเข้าอีกกี่วัน', 'งบที่เหลือของรอบนี้ และจำนวนวันจนถึงวันที่ 25 ครั้งถัดไป'],
+    ['เหลือหลัง Fixed', 'รายรับลบรายจ่ายประจำของรอบนี้จากแท็บ Fix cost กดเพื่อดูรายการ'],
     ['ผ่อนรอบนี้', 'ยอดผ่อนทุกรายการที่อยู่ในรอบนี้รวมกัน กดเพื่อดูรายละเอียด'],
-    ['แถบรายการผ่อน', 'แต่ละแถบบอกว่าจ่ายแล้วกี่งวดจากทั้งหมด งวดจะนับเมื่อเลยวันที่ 25 ของเดือนนั้น'],
+    ['ตัวการ์ตูน', 'ยิ้มเมื่อใช้ตามแผน กังวลเมื่อใช้เร็วกว่าแผน เศร้าเมื่อเกินงบ แตะแล้วจะกระโดด'],
+    ['การปัดเศษ', 'ตัวเลขสรุปปัดเป็นบาทเต็ม ส่วนรายการย่อยแสดงยอดจริง'],
   ],
   cycles: [
     ['ชื่อรอบ', 'เรียกตามเดือนที่รอบสิ้นสุด เช่น รอบ พ.ย. คือ 26 ต.ค. ถึง 24 พ.ย. ปุ่มซ้ายขวาใช้ดูรอบอื่น'],
-    ['รายจ่าย / รายรับ', 'ยอดรวมของรอบนี้จากแท็บ Daily Log โดยจัดกลุ่มตามคอลัมน์รอบเงินเดือน'],
+    ['ใช้ไป', 'รายจ่ายรวมของรอบนี้จากแท็บ Daily Log โดยจัดกลุ่มตามคอลัมน์รอบเงินเดือน'],
     ['เหลือจากงบ', 'งบ 6,400 บาทลบรายจ่ายของรอบนี้'],
-    ['รายจ่ายตามหมวด', 'ตัวเลขด้านขวาคือยอดรวมของหมวด แถบบอกสัดส่วนเทียบกับรายจ่ายทั้งรอบ'],
-    ['รายการ', 'ชื่อรายการและยอด ส่วนบรรทัดล่างคือวันที่และหมายเหตุ'],
-    ['รายรับในรอบนี้', 'รายการประเภทรายรับใน Daily Log ไม่รวมเงินเดือนที่อยู่ในแท็บ Fix cost'],
+    ['รับเพิ่ม', 'รายการประเภทรายรับใน Daily Log ไม่รวมเงินเดือนที่อยู่ในแท็บ Fix cost แสดงเมื่อมีรายการ'],
+    ['หมวด', 'ตัวเลขคือยอดรวมของหมวด แถบบอกสัดส่วนเทียบกับรายจ่ายทั้งรอบ แตะเพื่อดูรายการ วันที่ และหมายเหตุ'],
   ],
   fixed: [
     ['ชื่อเดือน', 'ตรงกับบล็อกในแท็บ Fix cost เช่น พฤศจิกายน 2026 คือ 25 ต.ค. ถึง 24 พ.ย. ปุ่มซ้ายขวาใช้ดูเดือนอื่น รวมเดือนอนาคตที่ใส่ไว้แล้ว'],
@@ -378,15 +400,12 @@ const HELP = {
     ['ยังไม่ระบุ', 'ช่องในชีตยังว่าง ยอดรวมจึงยังไม่นับรายการนั้น ไม่ได้หมายความว่าเป็น 0 บาท'],
   ],
   loans: [
-    ['ยอดผ่อนรวมต่อเดือนตอนนี้', 'ผลรวมงวดของทุกรายการที่อยู่ในรอบนี้ ตรงกับรายการผ่อนในบล็อก Fix cost'],
-    ['กราฟขั้นบันได', 'ยอดผ่อนต่อเดือนตามเวลา แต่ละขั้นคือเดือนที่ยอดเปลี่ยน'],
-    ['รายการเดือนที่ยอดเปลี่ยน', 'บอกว่าเดือนไหนยอดลดหรือเพิ่มเท่าไร เพราะรายการใด และเหลือยอดต่อเดือนเท่าไร'],
-    ['เปอร์เซ็นต์และหลอด', 'จำนวนงวดที่จ่ายแล้วเทียบกับทั้งหมด'],
+    ['ผ่อนต่อเดือน', 'ผลรวมงวดของทุกรายการที่อยู่ในรอบนี้ ตรงกับรายการผ่อนในบล็อก Fix cost'],
+    ['แต่ละรายการ', 'ตัวเลขคือจำนวนงวดที่จ่ายแล้วจากทั้งหมด งวดนับว่าจ่ายแล้วเมื่อเลยวันที่ 25 ของเดือนนั้น แตะเพื่อดูยอดที่ผ่อนแล้ว ยอดที่เหลือ ยอดเต็ม และงวดถัดไป'],
     ['ยอดเต็ม', 'ค่างวดคูณจำนวนงวด ไม่รวมเงินดาวน์'],
-    ['ผ่อนมาแล้ว / เหลือ', 'จำนวนงวด จำนวนเดือน และยอดเงิน งวดนับว่าจ่ายแล้วเมื่อเลยวันที่ 25 ของเดือนนั้น'],
-    ['งวดถัดไปตัด', 'วันครบกำหนดของงวดที่ยังไม่นับ'],
-    ['เดือนที่ผ่อนหมด', 'เดือนของงวดสุดท้าย'],
-    ['ผ่อนหมดแล้ว', 'รายการที่จ่ายครบทุกงวดจะย้ายมาอยู่ส่วนนี้ท้ายหน้า'],
+    ['กราฟขั้นบันได', 'ยอดผ่อนต่อเดือนตามเวลา แต่ละขั้นคือเดือนที่ยอดเปลี่ยน'],
+    ['เดือนที่ยอดเปลี่ยน', 'แตะเพื่อดูว่าเดือนไหนยอดเปลี่ยนเท่าไร เพราะรายการใด และเหลือยอดต่อเดือนเท่าไร'],
+    ['ผ่อนหมดแล้ว', 'รายการที่จ่ายครบทุกงวด แตะเพื่อดูรายละเอียด'],
   ],
 };
 
@@ -397,6 +416,7 @@ function initHelp() {
 
 function showTab(name) {
   state.tab = name;
+  $('#tabs').style.setProperty('--i', Object.keys(TITLES).indexOf(name));
   $$('#tabs [data-tab]').forEach((b) => {
     const on = b.dataset.tab === name;
     b.classList.toggle('active', on);
@@ -414,7 +434,7 @@ function render() {
   renderCycles(vm);
   renderFixed(vm);
   renderLoans(vm);
-  $('#pageSub').textContent = state.tab === 'today' && state.data ? `${Calc.cycleName(vm.key)} · ${Calc.fmtDayMonth(vm.current.start)} – ${Calc.fmtDayMonth(vm.current.end)}` : '';
+  $('#pageSub').textContent = state.tab === 'today' && state.data ? `${Calc.fmtDayMonth(vm.current.start)} – ${Calc.fmtDayMonth(vm.current.end)}` : '';
 }
 
 /* ---------- หน้าตั้งค่า ---------- */
@@ -639,6 +659,14 @@ $('#syncBtn').addEventListener('click', () => {
 });
 
 document.addEventListener('click', (e) => {
+  const buddy = e.target.closest('[data-mascot]');
+  if (buddy) {
+    buddy.classList.remove('jump');
+    void buddy.offsetWidth;
+    buddy.classList.add('jump');
+    setTimeout(() => buddy.classList.remove('jump'), 700);
+    return;
+  }
   if (e.target.closest('[data-close]')) { closeTop(); return; }
   const tab = e.target.closest('[data-tab]');
   if (tab) { showTab(tab.dataset.tab); return; }

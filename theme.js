@@ -26,7 +26,7 @@ const PALETTES = {
   },
   pink: {
     name: 'ชมพู',
-    light: { g: ['#ffbdd6', '#ffe0ec', '#fff3e8'], panel: '#ffffff', p2: '#fdf0f5', text: '#4f1230', muted: '#84506a', line: '#f6e1ea', track: '#fbe6ef', accent: '#d02670', onA: '#ffffff' },
+    light: { g: ['#ffbdd6', '#ffe0ec', '#fff3e8'], panel: '#ffffff', p2: '#fdf0f5', text: '#4f1230', muted: '#7a4560', line: '#f6e1ea', track: '#fbe6ef', accent: '#d02670', onA: '#ffffff' },
     dark: { g: ['#44142c', '#2f0f20', '#34190f'], panel: '#4a1a33', p2: '#5f2545', text: '#ffeaf2', muted: '#dcb0c4', line: '#5e2844', track: '#5e2844', accent: '#ff7aae', onA: '#2f0a1c' },
   },
   gold: {
@@ -42,6 +42,23 @@ function loadTheme() {
 }
 
 const gradientOf = (g) => `linear-gradient(170deg, ${g[0]} 0%, ${g[1]} 40%, ${g[2]} 100%)`;
+// แสงฟุ้งสีหลักซ้อนบนพื้นไล่สี เพื่อให้กระจกมีสีให้เบลอตอนเนื้อหาเลื่อนผ่าน
+const skyOf = (p, dark) => {
+  const a = dark ? 22 : 30;
+  return `radial-gradient(70% 38% at 92% 10%, color-mix(in srgb, ${p.accent} ${a}%, transparent), transparent 72%), `
+    + `radial-gradient(80% 42% at 4% 58%, color-mix(in srgb, ${p.g[0]} ${dark ? 90 : 80}%, transparent), transparent 74%), `
+    + `radial-gradient(70% 34% at 88% 96%, color-mix(in srgb, ${p.accent} ${a - 8}%, transparent), transparent 72%), ${gradientOf(p.g)}`;
+};
+const GLASS_LIGHT = {
+  '--glass': 'rgba(255,255,255,.56)', '--glass-sheen': 'rgba(255,255,255,.42)', '--glass-edge': 'rgba(255,255,255,.78)',
+  '--glass-shadow': '0 10px 30px rgba(20,30,60,.1)', '--nav-bg': 'rgba(255,255,255,.78)', '--nav-fg': '#3a3a40', '--nav-edge': 'rgba(255,255,255,.9)',
+  '--nav-shadow': '0 12px 30px rgba(20,30,60,.2)',
+};
+const GLASS_DARK = {
+  '--glass': 'rgba(6,8,12,.36)', '--glass-sheen': 'rgba(255,255,255,.05)', '--glass-edge': 'rgba(255,255,255,.17)',
+  '--glass-shadow': '0 10px 30px rgba(0,0,0,.26)', '--nav-bg': 'rgba(8,8,10,.8)', '--nav-fg': '#c9c9cf', '--nav-edge': 'rgba(255,255,255,.14)',
+  '--nav-shadow': '0 12px 30px rgba(0,0,0,.45)',
+};
 
 function applyTheme(theme) {
   const root = document.documentElement;
@@ -51,8 +68,9 @@ function applyTheme(theme) {
   const dark = theme.mode === 'dark' || (theme.mode === 'auto' && matchMedia('(prefers-color-scheme: dark)').matches);
   const p = (PALETTES[theme.palette] || PALETTES.sky)[dark ? 'dark' : 'light'];
   const vars = {
-    '--sky': gradientOf(p.g), '--canvas': p.g[2], '--panel': p.panel, '--panel-2': p.p2, '--text': p.text, '--muted': p.muted,
+    '--sky': skyOf(p, dark), '--canvas': p.g[2], '--panel': p.panel, '--panel-2': p.p2, '--text': p.text, '--muted': p.muted,
     '--line': p.line, '--track': p.track, '--accent': p.accent, '--on-accent': p.onA, '--tick': p.text,
+    ...(dark ? GLASS_DARK : GLASS_LIGHT),
   };
   Object.entries(vars).forEach(([k, v]) => root.style.setProperty(k, v));
 
