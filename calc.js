@@ -126,7 +126,24 @@
     const left = round2(BUDGET - used);
     const payday = nextPayday(today);
     const days = daysBetween(today, payday);
-    return { budget: BUDGET, used, left, days, payday, perDay: left > 0 ? round2(left / days) : 0, pct: Math.min(100, (used / BUDGET) * 100) };
+    // แผน: ใช้งบเท่ากันทุกวันในรอบงบ นับรวมวันนี้ / ahead > 0 = ใช้เร็วกว่าแผน
+    const period = budgetPeriod(cycleKeyOf(today));
+    const totalDays = daysBetween(period.start, period.end) + 1;
+    const elapsed = Math.max(0, Math.min(totalDays, daysBetween(period.start, today) + 1));
+    const planned = round2((BUDGET * elapsed) / totalDays);
+    return {
+      budget: BUDGET, used, left, days, payday, perDay: left > 0 ? round2(left / days) : 0,
+      pct: Math.min(100, (used / BUDGET) * 100),
+      planned, plannedPct: (planned / BUDGET) * 100, ahead: round2(used - planned),
+    };
+  }
+
+  // ชื่อรอบตามบล็อก Fix cost เช่น คีย์ 2026-10 = รอบ พ.ย. 2026
+  const cycleName = (key) => `รอบ ${fmtYm(ymAdd(key, 1))}`;
+
+  // จุดของกราฟขั้นบันได: ยอดต่อเดือนตอนนี้ ตามด้วยยอดหลังการเปลี่ยนแต่ละครั้ง
+  function installmentSteps(summary, today) {
+    return [{ ym: fixYmOf(today), amount: summary.now }, ...summary.timeline.map((e) => ({ ym: e.ym, amount: e.after }))];
   }
 
   /* ---------- การผ่อน ---------- */
@@ -176,7 +193,7 @@
     round2, parseYmd, ymOf, ymAdd, ymDay, daysBetween,
     fmtDayMonth, fmtDate, fmtYm, fmtYmLong, fmtRange,
     cycleKeyOf, budgetPeriod, fixYmOf, fixPeriod, nextPayday, parseCycleLabel, resolveCycle,
-    buildCycles, budgetSummary, installmentStatus, installmentSummary,
+    buildCycles, budgetSummary, cycleName, installmentStatus, installmentSummary, installmentSteps,
   };
   root.Calc = api;
   if (typeof module !== 'undefined' && module.exports) module.exports = api;

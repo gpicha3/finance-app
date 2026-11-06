@@ -6,6 +6,7 @@ const C = require('../calc.js');
 
 const D = (s) => C.parseYmd(s);
 const row = (date, cycle, amount, extra = {}) => ({ date, cycle, type: C.EXPENSE, category: 'กิน', item: 'x', amount, note: '', ...extra });
+const inst = (firstMonth, totalMonths, monthly = 1000.5, name = 'A') => ({ name, monthly, totalMonths, firstMonth, dueDay: 25 });
 
 test('รอบเงินเดือน: ก่อน 25 อยู่รอบเดือนก่อน / วันที่ 25 เป็นรอบใหม่', () => {
   assert.equal(C.cycleKeyOf(D('2026-11-06')), '2026-10');
@@ -97,7 +98,31 @@ test('สรุปงบ: วันถึงเงินเดือนและ
   assert.equal(over.pct, 100);
 });
 
-const inst = (firstMonth, totalMonths, monthly = 1000.5, name = 'A') => ({ name, monthly, totalMonths, firstMonth, dueDay: 25 });
+test('แผนการใช้งบ: ขีดแผนนับรวมวันนี้ และบอกว่าเร็วหรือช้ากว่าแผน', () => {
+  const s = C.budgetSummary({ expense: 3000 }, D('2026-11-06')); // วันที่ 12 จาก 30 วัน
+  assert.equal(s.planned, 2560);
+  assert.equal(s.plannedPct, 40);
+  assert.equal(s.ahead, 440);
+  assert.equal(C.budgetSummary({ expense: 100 }, D('2026-11-06')).ahead, -2460);
+  assert.equal(C.budgetSummary({ expense: 0 }, D('2026-11-24')).planned, 6400);
+  // วันที่ 25 ยังไม่เริ่มรอบงบ แผนจึงเป็น 0
+  assert.equal(C.budgetSummary({ expense: 0 }, D('2026-11-25')).planned, 0);
+  assert.equal(C.budgetSummary({ expense: 0 }, D('2026-11-26')).planned, 220.69);
+});
+
+test('ชื่อรอบตามบล็อก Fix cost', () => {
+  assert.equal(C.cycleName('2026-10'), 'รอบ พ.ย. 2026');
+  assert.equal(C.cycleName('2026-12'), 'รอบ ม.ค. 2027');
+});
+
+test('จุดของกราฟยอดผ่อนเริ่มจากยอดตอนนี้', () => {
+  const today = D('2026-11-06');
+  const s = C.installmentSummary([inst('2026-01', 24, 100), inst('2026-11', 4, 10)], today);
+  assert.deepEqual(C.installmentSteps(s, today), [
+    { ym: '2026-11', amount: 110 }, { ym: '2027-03', amount: 100 }, { ym: '2028-01', amount: 0 },
+  ]);
+});
+
 
 test('งวดผ่อน: 48 งวดจาก 2024-11 ณ 6 พ.ย. 2026 ได้ 24 งวด', () => {
   const s = C.installmentStatus(inst('2024-11', 48), D('2026-11-06'));

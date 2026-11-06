@@ -1,6 +1,6 @@
 'use strict';
 
-const APP_VERSION = '2026.11.06.2';
+const APP_VERSION = '2026.11.06.3';
 const KEYS = { setup: 'fa.setup', data: 'fa.data', synced: 'fa.synced' };
 
 const $ = (s, el = document) => el.querySelector(s);
@@ -69,6 +69,7 @@ const state = {
   syncError: null,
   cycleKey: null, // รอบที่กำลังดูในหน้ารอบเงินเดือน
   fixYm: null,    // เดือนที่กำลังดูในหน้า Fixed cost
+  tab: 'today',
 };
 state.data = state.setup ? store.get(KEYS.data, null) : demoData();
 
@@ -107,7 +108,7 @@ async function sync({ quiet = false } = {}) {
     if (!quiet) toast('อัปเดตข้อมูลแล้ว');
   } catch (err) {
     console.error(err);
-    state.syncError = err.message === 'unauthorized' ? 'TOKEN ไม่ถูกต้อง' : !navigator.onLine ? 'ไม่มีอินเทอร์เน็ต' : err.message || 'เชื่อมต่อไม่สำเร็จ';
+    state.syncError = err.message === 'unauthorized' ? 'TOKEN ไม่ถูกต้อง' : !navigator.onLine ? 'ไม่มีอินเทอร์เน็ต' : err instanceof TypeError ? 'เชื่อมต่อไม่สำเร็จ' : err.message;
     if (!quiet) toast(state.syncError, 3500);
   } finally {
     state.loading = false;
@@ -119,15 +120,21 @@ async function sync({ quiet = false } = {}) {
 /* ---------- ส่วนที่ใช้ร่วมกัน ---------- */
 const CHEV_L = '<svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg>';
 const CHEV_R = '<svg viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg>';
-const stat = (label, value, unit = '', cls = '') => `<div class="stat"><span class="stat-label">${esc(label)}</span><span class="stat-value ${cls}">${value}</span><span class="stat-unit">${esc(unit)}</span></div>`;
-const bar = (pct, cls = '', extra = '') => `<div class="bar ${extra}"><i class="${cls}" style="width:${Math.max(0, Math.min(100, pct)).toFixed(1)}%"></i></div>`;
-const kv = (k, v, cls = '', bCls = '') => `<div class="kv ${cls}"><span>${esc(k)}</span><b class="${bCls}">${v}</b></div>`;
-const pager = (id, title, sub, hasPrev, hasNext) => `<div class="pager" id="${id}">
+const ICON_OK = '<svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>';
+const ICON_UP = '<svg viewBox="0 0 24 24"><path d="M12 19V5M6 11l6-6 6 6"/></svg>';
+const ICON_ALERT = '<svg viewBox="0 0 24 24"><path d="M12 4v10M12 19v.5"/></svg>';
+const TITLES = { today: 'วันนี้', cycles: 'รอบเงินเดือน', fixed: 'Fixed cost', loans: 'การผ่อน' };
+
+const bar = (pct, extra = '') => `<div class="bar ${extra}"><i style="width:${Math.max(0, Math.min(100, pct)).toFixed(1)}%"></i></div>`;
+const sum = (label, value, cls = '') => `<div class="sum"><span>${esc(label)}</span><b class="${cls}">${value}</b></div>`;
+const pager = (id, title, sub, tag, hasPrev, hasNext) => `<div class="pager" id="${id}">
   <button class="icon-btn" data-step="-1" aria-label="ก่อนหน้า" ${hasPrev ? '' : 'disabled'}>${CHEV_L}</button>
-  <div class="pager-title"><b>${esc(title)}</b><small>${sub}</small></div>
+  <div class="pager-title"><b>${esc(title)}</b><small>${esc(sub)}</small></div>
   <button class="icon-btn" data-step="1" aria-label="ถัดไป" ${hasNext ? '' : 'disabled'}>${CHEV_R}</button>
-</div>`;
-const cycleTitle = (c) => (c.start ? Calc.fmtRange(c.start, c.end) : (c.label || 'ไม่ระบุรอบ'));
+</div><div class="pager-tag">${tag}</div>`;
+const isNamed = (c) => !c.key.startsWith('x:');
+const cycleTitle = (c) => (isNamed(c) ? Calc.cycleName(c.key) : (c.label || 'ไม่ระบุรอบ'));
+const cycleRange = (c) => (c.start ? Calc.fmtRange(c.start, c.end) : 'อ่านช่วงวันที่ไม่ได้');
 const dayLabel = (s) => { const d = Calc.parseYmd(s); return d ? Calc.fmtDate(d) : esc(s); };
 
 function viewModel() {
@@ -141,9 +148,15 @@ function viewModel() {
   return { now, key, fixYm, cycles, current: cycles.find((c) => c.key === key), loans, blocks, block: blocks.find((b) => b.ym === fixYm) };
 }
 
-/* ---------- หน้าแรก ---------- */
-function renderHome(vm) {
-  const el = $('#home');
+/* ---------- วันนี้ ---------- */
+function paceStatus(b) {
+  if (b.left < 0) return { cls: 'bad', icon: ICON_ALERT, text: `ใช้เกินงบ ${baht(-b.left)}` };
+  if (b.ahead > 0) return { cls: 'warn', icon: ICON_UP, text: `ใช้เร็วกว่าแผน ${baht(b.ahead)}` };
+  return { cls: 'good', icon: ICON_OK, text: b.ahead < 0 ? `ใช้ช้ากว่าแผน ${baht(-b.ahead)}` : 'ใช้ตามแผนพอดี' };
+}
+
+function renderToday(vm) {
+  const el = $('#view-today');
   if (!state.data) {
     el.innerHTML = state.syncError
       ? `<div class="banner bad">โหลดข้อมูลไม่สำเร็จ: ${esc(state.syncError)}</div>`
@@ -151,56 +164,42 @@ function renderHome(vm) {
     return;
   }
   const b = Calc.budgetSummary(vm.current, vm.now);
-  const [whole, dec] = baht(Math.abs(b.left)).split('.');
-  const over = b.left < 0;
-  const barCls = over ? 'bad' : b.pct >= 85 ? 'warn' : '';
+  const [whole, dec] = baht(b.perDay).split('.');
+  const st = paceStatus(b);
+  const fillCls = b.left < 0 ? 'bad' : b.ahead > 0 ? 'warn' : '';
   const banner = !state.setup
     ? '<div class="banner">กำลังแสดงข้อมูลตัวอย่าง <button data-open="settings">เชื่อมต่อ Google Sheet</button></div>'
     : state.syncError ? `<div class="banner bad">อัปเดตไม่สำเร็จ (${esc(state.syncError)}) กำลังแสดงข้อมูลล่าสุดที่มี</div>` : '';
-  const hint = vm.current.invalid ? `<p class="hint warn">มี ${vm.current.invalid} แถวในรอบนี้ที่อ่านยอดหรือประเภทไม่ได้ จึงไม่ถูกนับ</p>` : '';
-  el.innerHTML = `${banner}
-    <section class="hero">
-      <span class="hero-label">${over ? 'ใช้เกินงบ' : 'เหลือในงบรอบนี้'} (บาท)</span>
-      <div class="hero-value"><span class="hero-num ${over ? 'bad' : ''}">${over ? '−' : ''}${whole}</span><span class="hero-dec">.${dec}</span></div>
-      <div class="hero-status">${esc(cycleTitle(vm.current))}</div>
-      ${bar(b.pct, barCls)}
-    </section>
-    ${hint}
-    <section class="stats">
-      ${stat('ใช้ไป', baht(b.used), `จากงบ ${baht(b.budget)}`)}
-      ${stat('เงินเดือนเข้าอีก', `${b.days} วัน`, Calc.fmtDate(b.payday))}
-      ${stat('ใช้ได้ต่อวัน', baht(b.perDay), 'บาท/วัน')}
-    </section>
-    ${renderHomeFixed(vm)}
-    ${renderHomeLoans(vm)}`;
-}
-
-function renderHomeFixed(vm) {
+  const invalid = vm.current.invalid ? `<p class="hint warn">มี ${vm.current.invalid} แถวในรอบนี้ที่อ่านยอดหรือประเภทไม่ได้ จึงไม่ถูกนับ</p>` : '';
   const blk = vm.block;
-  const range = Calc.fixPeriod(vm.fixYm);
-  const body = blk
-    ? `${kv('รายรับ', baht(blk.income))}${kv('Fixed cost', baht(blk.total))}${kv('เงินเหลือ', baht(blk.balance), 'total', blk.balance < 0 ? 'bad' : '')}${blk.items.some((i) => i.amount == null) ? '<p class="hint">มีบางรายการยังไม่ระบุยอด</p>' : ''}`
-    : '<p class="empty-line">ไม่มีบล็อกของเดือนนี้ในแท็บ Fix cost</p>';
-  return `<button class="card" data-open-fixed="${vm.fixYm}" type="button">
-    <div class="card-head"><h2>รายรับ − Fixed cost</h2><small>${esc(Calc.fmtYmLong(vm.fixYm))}</small></div>
-    <div class="hint">${esc(Calc.fmtRange(range.start, range.end))}</div>
-    ${body}
-  </button>`;
-}
-
-function renderHomeLoans(vm) {
   const active = vm.loans.items.filter((i) => !i.done);
-  const doneCount = vm.loans.items.length - active.length;
-  const rows = active.map((i) => `<div class="mini">
-    <div class="mini-top"><b>${esc(i.name)}</b><span>${i.paid}/${i.totalMonths} งวด</span></div>
-    ${bar(i.pct, 'good')}
-    <small>เหลือ ${baht(i.leftAmount)} · หมด ${esc(Calc.fmtYm(i.endMonth))}</small>
-  </div>`).join('');
-  return `<button class="card" data-open="loans" type="button">
-    <div class="card-head"><h2>สถานะผ่อน</h2><small>${baht(vm.loans.now)} /เดือน</small></div>
-    ${rows || '<p class="empty-line">ไม่มีรายการที่กำลังผ่อน</p>'}
-    ${doneCount ? `<p class="hint">ผ่อนหมดแล้ว ${doneCount} รายการ</p>` : ''}
-  </button>`;
+  el.innerHTML = `${banner}
+    <div class="cycle-line"><b>${esc(Calc.cycleName(vm.key))}</b><span>${esc(cycleRange(vm.current))}</span></div>
+    <section class="hero">
+      <div class="hero-label">ใช้ได้วันนี้</div>
+      <div class="hero-value"><span class="hero-num">${whole}</span><span class="hero-dec">.${dec}</span><span class="hero-unit">บาท</span></div>
+      <div class="hero-sub">เฉลี่ยจากงบที่เหลือ ${b.days} วัน เงินเดือนเข้า ${esc(Calc.fmtDate(b.payday))}</div>
+    </section>
+    <div class="status ${st.cls}">${st.icon}<span>${esc(st.text)}</span></div>
+    <div class="meter" role="img" aria-label="ใช้ไป ${baht(b.used)} จากงบ ${baht(b.budget)} แผนถึงวันนี้ ${baht(b.planned)}">
+      <i class="${fillCls}" style="width:${b.pct.toFixed(1)}%"></i><em style="left:${b.plannedPct.toFixed(1)}%"></em>
+    </div>
+    <div class="meter-legend"><span>ใช้ไป<b>${baht(b.used)}</b></span><span>${b.left < 0 ? 'เกิน' : 'เหลือ'}<b>${baht(Math.abs(b.left))}</b></span></div>
+    <div class="meter-note">งบ ${baht(b.budget)} · ขีดคือแผนถึงวันนี้ ${baht(b.planned)}</div>
+    ${invalid}
+    <section class="panel">
+      <button class="row" data-goto="fixed" data-fix="${vm.fixYm}">
+        <span class="row-text"><span>เงินเหลือหลัง Fixed cost</span><small>${blk ? `รายรับ ${baht(blk.income)} − ${baht(blk.total)}` : 'ไม่มีบล็อกของเดือนนี้ในแท็บ Fix cost'}</small></span>
+        <span class="row-val">${blk ? baht(blk.balance) : '–'}${CHEV_R}</span>
+      </button>
+      <button class="row" data-goto="loans">
+        <span class="row-text"><span>ผ่อนรอบนี้</span><small>${active.length} รายการ</small></span>
+        <span class="row-val">${baht(vm.loans.now)}${CHEV_R}</span>
+      </button>
+      <div class="mini-wrap">
+        ${active.map((i) => `<div class="mini"><b>${esc(i.name)}</b><span>${i.paid}/${i.totalMonths} งวด</span>${bar(i.pct)}</div>`).join('')}
+      </div>
+    </section>`;
 }
 
 /* ---------- รอบเงินเดือน ---------- */
@@ -210,37 +209,37 @@ const itemRow = (r) => `<li>
 </li>`;
 
 function renderCycles(vm) {
-  const el = $('#cyclesBody');
+  const el = $('#view-cycles');
   if (!state.data) { el.innerHTML = '<p class="empty-state">ยังไม่มีข้อมูล</p>'; return; }
   const list = vm.cycles;
   let idx = list.findIndex((c) => c.key === state.cycleKey);
   if (idx < 0) idx = list.findIndex((c) => c.key === vm.key);
   const c = list[idx];
   state.cycleKey = c.key;
-  const isNow = c.key === vm.key;
   const left = Calc.round2(Calc.BUDGET - c.expense);
-  const sub = isNow ? '<span class="badge">รอบปัจจุบัน</span>' : `<span class="badge muted">ย้อนหลัง</span><button class="text-link" data-cycle-now>กลับรอบปัจจุบัน</button>`;
-  el.innerHTML = `${pager('cyclePager', cycleTitle(c), sub, idx < list.length - 1, idx > 0)}
-    <section class="stats">
-      ${stat('รายจ่าย', baht(c.expense), 'บาท')}
-      ${stat('รายรับ', baht(c.income), 'บาท')}
-      ${stat('เหลือจากงบ', baht(left), `งบ ${baht(Calc.BUDGET)}`, left < 0 ? 'bad' : '')}
-    </section>
+  const tag = c.key === vm.key ? 'รอบปัจจุบัน' : 'ย้อนหลัง<button data-cycle-now>กลับรอบปัจจุบัน</button>';
+  el.innerHTML = `${pager('cyclePager', cycleTitle(c), cycleRange(c), tag, idx < list.length - 1, idx > 0)}
+    <div class="sums">
+      ${sum('รายจ่าย', baht(c.expense))}
+      ${sum('รายรับ', baht(c.income))}
+      ${sum('เหลือจากงบ', baht(left), left < 0 ? 'bad' : '')}
+    </div>
     ${c.invalid ? `<p class="hint warn">มี ${c.invalid} แถวในรอบนี้ที่อ่านยอดหรือประเภทไม่ได้ จึงไม่ถูกนับ</p>` : ''}
     <h3 class="section-title">รายจ่ายตามหมวด</h3>
-    ${c.categories.length ? c.categories.map((cat) => `<section class="card">
-      <div class="card-head"><h2>${esc(cat.name)}</h2><span class="sum">${baht(cat.total)}</span></div>
+    ${c.categories.length ? c.categories.map((cat) => `<section class="panel">
+      <div class="panel-head"><h2>${esc(cat.name)}</h2><b>${baht(cat.total)}</b></div>
+      ${bar(c.expense > 0 ? (cat.total / c.expense) * 100 : 0)}
       <ul class="items">${cat.rows.map(itemRow).join('')}</ul>
-    </section>`).join('') : '<section class="card"><p class="empty-line">ไม่มีรายจ่ายในรอบนี้</p></section>'}
+    </section>`).join('') : '<section class="panel"><p class="empty">ไม่มีรายจ่ายในรอบนี้</p></section>'}
     <h3 class="section-title">รายรับในรอบนี้</h3>
-    <section class="card">
-      ${c.incomeRows.length ? `<div class="card-head"><h2>รวมรายรับ</h2><span class="sum">${baht(c.income)}</span></div><ul class="items">${c.incomeRows.map(itemRow).join('')}</ul>` : '<p class="empty-line">ไม่มีรายการรายรับใน Daily Log ของรอบนี้</p>'}
+    <section class="panel">
+      ${c.incomeRows.length ? `<div class="panel-head"><h2>รวมรายรับ</h2><b>${baht(c.income)}</b></div><ul class="items">${c.incomeRows.map(itemRow).join('')}</ul>` : '<p class="empty">ไม่มีรายการรายรับใน Daily Log ของรอบนี้</p>'}
     </section>`;
 }
 
 /* ---------- Fixed cost ---------- */
 function renderFixed(vm) {
-  const el = $('#fixedBody');
+  const el = $('#view-fixed');
   const list = vm.blocks;
   if (!list.length) { el.innerHTML = '<p class="empty-state">ไม่มีข้อมูลในแท็บ Fix cost</p>'; return; }
   let idx = list.findIndex((b) => b.ym === state.fixYm);
@@ -249,48 +248,78 @@ function renderFixed(vm) {
   const b = list[idx];
   state.fixYm = b.ym;
   const range = Calc.fixPeriod(b.ym);
-  const tag = b.ym === vm.fixYm ? '<span class="badge">รอบปัจจุบัน</span>'
-    : `<span class="badge muted">${b.ym > vm.fixYm ? 'เดือนอนาคต' : 'ย้อนหลัง'}</span><button class="text-link" data-fix-now>กลับรอบปัจจุบัน</button>`;
+  const tag = b.ym === vm.fixYm ? 'รอบปัจจุบัน'
+    : `${b.ym > vm.fixYm ? 'เดือนอนาคต' : 'ย้อนหลัง'}<button data-fix-now>กลับรอบปัจจุบัน</button>`;
   const blanks = b.items.filter((i) => i.amount == null).length;
-  el.innerHTML = `${pager('fixPager', Calc.fmtYmLong(b.ym), `${esc(Calc.fmtRange(range.start, range.end))}<br>${tag}`, idx > 0, idx < list.length - 1)}
-    <section class="card">
+  const [whole, dec] = baht(Math.abs(b.balance)).split('.');
+  el.innerHTML = `${pager('fixPager', Calc.fmtYmLong(b.ym), Calc.fmtRange(range.start, range.end), tag, idx > 0, idx < list.length - 1)}
+    <section class="panel balance">
+      <span>เงินเหลือ</span>
+      <div class="big ${b.balance < 0 ? 'bad' : ''}">${b.balance < 0 ? '−' : ''}${whole}.${dec}<small>บาท</small></div>
+      <div class="equation">รายรับ ${baht(b.income)} − ยอดรวม ${baht(b.total)}</div>
+    </section>
+    <section class="panel">
       <ul class="items">${b.items.map((i) => `<li><span class="item-name">${esc(i.name)}</span>${i.amount == null ? '<span class="item-amt none">ยังไม่ระบุ</span>' : `<span class="item-amt">${baht(i.amount)}</span>`}</li>`).join('')}</ul>
       ${blanks ? `<p class="hint">ยอดรวมนับเฉพาะรายการที่ระบุแล้ว (ยังไม่ระบุ ${blanks} รายการ)</p>` : ''}
-    </section>
-    <section class="card">
-      ${kv('ยอดรวม', baht(b.total))}
-      ${kv('รายรับ', baht(b.income))}
-      ${kv('เงินเหลือ', baht(b.balance), 'total', b.balance < 0 ? 'bad' : '')}
     </section>`;
 }
 
 /* ---------- การผ่อน ---------- */
+// กราฟขั้นบันได: ชุดข้อมูลเดียว แกนเดียว ติดป้ายเฉพาะจุดที่ยอดเปลี่ยน รายการตัวเลขอยู่ใต้กราฟ
+function stepChart(steps) {
+  if (steps.length < 2) return '';
+  const W = 340, H = 150, top = 22, bottom = 124, left = 2, right = 338;
+  const idx = (ym) => { const [y, m] = ym.split('-').map(Number); return y * 12 + m; };
+  const t0 = idx(steps[0].ym), span = Math.max(1, idx(steps[steps.length - 1].ym) - t0);
+  const max = Math.max(...steps.map((s) => s.amount), 1);
+  const x = (s) => left + ((idx(s.ym) - t0) / span) * (right - left);
+  const y = (a) => bottom - (a / max) * (bottom - top);
+  let d = `M${x(steps[0]).toFixed(1)} ${y(steps[0].amount).toFixed(1)}`;
+  steps.slice(1).forEach((s) => { d += `H${x(s).toFixed(1)}V${y(s.amount).toFixed(1)}`; });
+  const area = `${d}V${bottom}H${left}Z`;
+  const short = (a) => Math.round(a).toLocaleString('en-US');
+  let lastX = -999;
+  const labels = steps.map((s, i) => {
+    const px = x(s);
+    const last = i === steps.length - 1;
+    const anchor = last ? 'end' : 'start';
+    const showDate = last || px - lastX > 52;
+    if (showDate) lastX = px;
+    const vy = Math.max(12, y(s.amount) - 7);
+    return `<text class="val" x="${(last ? right - 8 : px + 3).toFixed(1)}" y="${vy.toFixed(1)}" text-anchor="${anchor}">${short(s.amount)}</text>`
+      + (showDate ? `<text x="${(last ? right : px).toFixed(1)}" y="${H - 8}" text-anchor="${anchor}">${esc(Calc.fmtYm(s.ym))}</text>` : '');
+  }).join('');
+  const dots = steps.map((s) => `<circle class="dot" cx="${x(s).toFixed(1)}" cy="${y(s.amount).toFixed(1)}" r="4"/>`).join('');
+  return `<div class="chart"><svg viewBox="0 0 ${W} ${H}" role="img" aria-label="ยอดผ่อนต่อเดือนตามเวลา รายละเอียดอยู่ในรายการด้านล่าง">
+    <line class="grid" x1="${left}" x2="${right}" y1="${bottom}" y2="${bottom}"/>
+    <path class="area" d="${area}"/><path class="line" d="${d}"/>${dots}${labels}
+  </svg></div>`;
+}
+
 function loanCard(i) {
   if (i.done) {
-    return `<section class="card">
-      <div class="loan-head"><h2>${esc(i.name)}</h2><span>100%</span></div>
-      <div class="loan-sub">${baht(i.monthly)} × ${i.totalMonths} งวด · ผ่อนหมด ${esc(Calc.fmtYm(i.endMonth))}</div>
-      ${bar(100, 'good', 'loan-bar')}
-      ${kv('ยอดที่จ่ายทั้งหมด', baht(i.fullAmount))}
+    return `<section class="panel loan">
+      <div class="loan-head"><h2>${esc(i.name)}</h2><span>ครบ ${i.totalMonths} งวด</span></div>
+      <div class="loan-sub">จ่ายทั้งหมด ${baht(i.fullAmount)} · ผ่อนหมด ${esc(Calc.fmtYm(i.endMonth))}</div>
     </section>`;
   }
-  return `<section class="card">
+  return `<section class="panel loan">
     <div class="loan-head"><h2>${esc(i.name)}</h2><span>${Math.round(i.pct)}%</span></div>
     <div class="loan-sub">${baht(i.monthly)} × ${i.totalMonths} งวด = ${baht(i.fullAmount)}</div>
-    ${bar(i.pct, 'good', 'loan-bar')}
+    ${bar(i.pct, 'thick')}
     <div class="loan-cols">
-      <div class="loan-col"><h3>ผ่อนมาแล้ว</h3><p><b>${i.paid}</b> งวด · ${i.paid} เดือน</p><p>${baht(i.paidAmount)}</p></div>
-      <div class="loan-col"><h3>เหลือ</h3><p><b>${i.left}</b> งวด · อีก ${i.left} เดือน</p><p>${baht(i.leftAmount)}</p></div>
+      <div class="loan-col"><h3>ผ่อนมาแล้ว</h3><p><b>${i.paid}</b> งวด · ${i.paid} เดือน</p><small>${baht(i.paidAmount)}</small></div>
+      <div class="loan-col"><h3>เหลือ</h3><p><b>${i.left}</b> งวด · อีก ${i.left} เดือน</p><small>${baht(i.leftAmount)}</small></div>
     </div>
     <div class="loan-facts">
-      ${kv('งวดถัดไปตัด', esc(Calc.fmtDate(i.nextDue)))}
-      ${kv('เดือนที่ผ่อนหมด', esc(Calc.fmtYm(i.endMonth)))}
+      <div><span>งวดถัดไปตัด</span><b>${esc(Calc.fmtDate(i.nextDue))}</b></div>
+      <div><span>เดือนที่ผ่อนหมด</span><b>${esc(Calc.fmtYm(i.endMonth))}</b></div>
     </div>
   </section>`;
 }
 
 function renderLoans(vm) {
-  const el = $('#loansBody');
+  const el = $('#view-loans');
   const { items, now: monthly, timeline, pending } = vm.loans;
   if (!items.length) { el.innerHTML = '<p class="empty-state">ไม่มีข้อมูลในแท็บ Installments</p>'; return; }
   const active = items.filter((i) => !i.done);
@@ -298,55 +327,58 @@ function renderLoans(vm) {
   const tl = timeline.map((e) => {
     const what = [...e.started.map((n) => `เริ่ม ${n}`), ...e.ended.map((n) => `${n} หมด`)].join(' · ');
     return `<li>
-      <b>${esc(Calc.fmtYm(e.ym))}</b><span class="${e.delta > 0 ? 'up' : 'down'}">${signed(e.delta)}</span>
-      <small>${esc(what)}</small><small>เหลือ ${baht(e.after)} /เดือน</small>
+      <b>${esc(Calc.fmtYm(e.ym))}</b><span class="delta">${signed(e.delta)}</span>
+      <small>${esc(what)}</small><small>เหลือ ${baht(e.after)}</small>
     </li>`;
   }).join('');
-  el.innerHTML = `<section class="card">
-      <div class="hint">ยอดผ่อนรวมต่อเดือนตอนนี้</div>
+  el.innerHTML = `<section class="panel balance" style="margin-top:0">
+      <span>ยอดผ่อนรวมต่อเดือนตอนนี้</span>
       <div class="big">${baht(monthly)}<small>บาท</small></div>
-      ${pending.length ? `<p class="hint">ยังไม่รวม ${esc(pending.map((i) => i.name).join(', '))} ที่ยังไม่ถึงรอบงวดแรก</p>` : ''}
+      ${pending.length ? `<div class="equation">ยังไม่รวม ${esc(pending.map((i) => i.name).join(', '))} ที่ยังไม่ถึงรอบงวดแรก</div>` : ''}
     </section>
     <h3 class="section-title">ยอดต่อเดือนจะเปลี่ยนเมื่อไร</h3>
-    <section class="card">${tl ? `<ul class="tl">${tl}</ul>` : '<p class="empty-line">ไม่มีการเปลี่ยนแปลงข้างหน้า</p>'}</section>
+    <section class="panel">
+      ${stepChart(Calc.installmentSteps(vm.loans, vm.now))}
+      ${tl ? `<ul class="tl">${tl}</ul>` : '<p class="empty">ไม่มีการเปลี่ยนแปลงข้างหน้า</p>'}
+    </section>
     <h3 class="section-title">กำลังผ่อน</h3>
-    ${active.length ? active.map(loanCard).join('') : '<section class="card"><p class="empty-line">ไม่มีรายการที่กำลังผ่อน</p></section>'}
+    ${active.length ? active.map(loanCard).join('') : '<section class="panel"><p class="empty">ไม่มีรายการที่กำลังผ่อน</p></section>'}
     ${done.length ? `<h3 class="section-title">ผ่อนหมดแล้ว</h3>${done.map(loanCard).join('')}` : ''}`;
 }
 
-function renderMenu(vm) {
-  $('#mCycles').textContent = state.data ? `${vm.cycles.filter((c) => !c.key.startsWith('x:')).length} รอบใน Daily Log` : '';
-  $('#mFixed').textContent = vm.blocks.length ? `ถึง ${Calc.fmtYmLong(vm.blocks[vm.blocks.length - 1].ym)}` : '';
-  $('#mLoans').textContent = state.data ? `${baht(vm.loans.now)} บาทต่อเดือน` : '';
+function showTab(name) {
+  state.tab = name;
+  $$('#tabs [data-tab]').forEach((b) => {
+    const on = b.dataset.tab === name;
+    b.classList.toggle('active', on);
+    if (on) b.setAttribute('aria-current', 'page'); else b.removeAttribute('aria-current');
+  });
+  $$('.view').forEach((v) => { v.hidden = v.id !== `view-${name}`; });
+  $('#pageTitle').textContent = TITLES[name];
+  $('#scroll').scrollTop = 0;
+  render();
 }
 
 function render() {
   const vm = viewModel();
-  renderHome(vm);
+  renderToday(vm);
   renderCycles(vm);
   renderFixed(vm);
   renderLoans(vm);
-  renderMenu(vm);
 }
 
-/* ---------- หน้าย่อย ---------- */
+/* ---------- หน้าตั้งค่า ---------- */
 const stack = [];
-const isOpen = (id) => stack.some((s) => s.id === id);
 const topSheet = () => stack[stack.length - 1] || null;
 
 function open(id) {
   const sheet = $(`#${id}`);
-  if (!sheet || isOpen(id)) return;
+  if (!sheet || stack.includes(sheet)) return;
   sheet.scrollTop = 0;
   sheet.classList.remove('closing');
   sheet.hidden = false;
-  sheet.style.zIndex = 10 + stack.length * 2;
   if (id === 'settings') initSettings();
   sheet.classList.add('opening');
-  const shell = $('.shell');
-  shell.style.transform = ''; shell.style.opacity = ''; delete shell.dataset.inline;
-  shell.classList.remove('unpushed');
-  shell.classList.add('pushed');
   stack.push(sheet);
 }
 
@@ -354,30 +386,11 @@ function closeTop({ instant = false } = {}) {
   const sheet = stack.pop();
   if (!sheet) return;
   document.activeElement?.blur?.();
-  const shell = $('.shell');
-  if (instant) {
-    // ปิดหลังจากปัดย้อนกลับ: animation ทำไปแล้วด้วยนิ้ว
-    sheet.hidden = true;
-    sheet.classList.remove('opening', 'closing');
-    shell.classList.remove('pushed', 'unpushed');
-    delete shell.dataset.inline;
-    return;
-  }
-  if (shell.dataset.inline) {
-    // หน้าด้านหลังถูกจัดตำแหน่งด้วย inline style (หลังปัดไม่สุด) → เลื่อนกลับด้วย transition
-    shell.style.transition = 'transform .32s ease-in, opacity .32s ease-in';
-    shell.style.transform = '';
-    shell.style.opacity = '';
-    setTimeout(() => { shell.style.transition = ''; delete shell.dataset.inline; }, 340);
-  } else {
-    shell.classList.remove('pushed');
-    shell.classList.add('unpushed');
-    setTimeout(() => shell.classList.remove('unpushed'), 330);
-  }
   sheet.classList.remove('opening');
-  sheet.classList.add('closing');
   const done = () => { sheet.hidden = true; sheet.classList.remove('closing'); sheet.style.transform = ''; };
-  if (reduceMotion) done(); else setTimeout(done, 320);
+  if (instant || reduceMotion) { done(); return; }
+  sheet.classList.add('closing');
+  setTimeout(done, 260);
 }
 function closeSheets() { while (stack.length) closeTop(); }
 
@@ -394,9 +407,6 @@ function parseSetup(text) {
 function renderThemeControls() {
   const theme = loadTheme();
   $$('#themeSeg button').forEach((b) => b.classList.toggle('active', b.dataset.themeMode === theme.mode));
-  $('#swatches').innerHTML = Object.entries(ACCENTS).map(([id, a]) => `
-    <button type="button" class="swatch${id === theme.accent ? ' active' : ''}" data-accent="${id}" aria-label="${a.name}"
-      style="--sw-l: ${a.light}; --sw-d: ${a.dark}"><svg viewBox="0 0 24 24"><path d="M5 12l5 5 9-10"/></svg></button>`).join('');
 }
 
 function renderConnection(editing = false) {
@@ -426,12 +436,6 @@ $('#themeSeg').addEventListener('click', (e) => {
   const b = e.target.closest('[data-theme-mode]');
   if (!b) return;
   saveTheme({ ...loadTheme(), mode: b.dataset.themeMode });
-  renderThemeControls();
-});
-$('#swatches').addEventListener('click', (e) => {
-  const b = e.target.closest('[data-accent]');
-  if (!b) return;
-  saveTheme({ ...loadTheme(), accent: b.dataset.accent });
   renderThemeControls();
 });
 $('#editLinkBtn').addEventListener('click', () => { renderConnection(true); $('#setupInput').focus(); });
@@ -472,17 +476,17 @@ $('#clearSetupBtn').addEventListener('click', () => {
   render();
 });
 
-/* ---------- gesture: ดึงลงเพื่อรีเฟรช (หน้าแรก) / ปัดจากขอบซ้ายเพื่อย้อนกลับ ---------- */
+/* ---------- gesture: ดึงลงเพื่อรีเฟรช / ปัดจากขอบซ้ายเพื่อปิดหน้าตั้งค่า ---------- */
 const PULL_TRIGGER = 70;
 let g = null;
 
-$('#homeScroll').addEventListener('touchstart', (e) => {
+$('#scroll').addEventListener('touchstart', (e) => {
   if (stack.length || e.touches.length > 1) return;
   const tc = e.touches[0];
-  g = { y: tc.clientY, x: tc.clientX, mode: null, pull: 0, atTop: $('#homeScroll').scrollTop <= 0, inner: $('#homeInner') };
+  g = { y: tc.clientY, x: tc.clientX, mode: null, pull: 0, atTop: $('#scroll').scrollTop <= 0, inner: $('#page') };
 }, { passive: true });
 
-$('#homeScroll').addEventListener('touchmove', (e) => {
+$('#scroll').addEventListener('touchmove', (e) => {
   if (!g) return;
   const tc = e.touches[0];
   const dx = tc.clientX - g.x, dy = tc.clientY - g.y;
@@ -498,7 +502,6 @@ $('#homeScroll').addEventListener('touchmove', (e) => {
   const p = Math.min(1, g.pull / PULL_TRIGGER);
   ptrEl.style.opacity = p;
   ptrEl.style.transform = `translateY(${g.pull * 0.6 - 20}px) scale(${0.6 + p * 0.4})`;
-  $('svg', ptrEl).style.transform = `rotate(${g.pull * 4}deg)`;
 }, { passive: false });
 
 const endPull = () => {
@@ -510,8 +513,8 @@ const endPull = () => {
   if (cur.pull >= PULL_TRIGGER) refreshFromPull(cur.inner);
   else resetPull(cur.inner);
 };
-$('#homeScroll').addEventListener('touchend', endPull);
-$('#homeScroll').addEventListener('touchcancel', endPull);
+$('#scroll').addEventListener('touchend', endPull);
+$('#scroll').addEventListener('touchcancel', endPull);
 
 function resetPull(inner) {
   inner.style.transform = '';
@@ -519,7 +522,6 @@ function resetPull(inner) {
   ptrEl.classList.remove('loading');
   ptrEl.style.opacity = '';
   ptrEl.style.transform = '';
-  $('svg', ptrEl).style.transform = '';
 }
 
 async function refreshFromPull(inner) {
@@ -527,63 +529,44 @@ async function refreshFromPull(inner) {
   inner.style.transform = 'translateY(56px)';
   ptrEl.style.transform = 'translateY(14px) scale(1)';
   ptrEl.style.opacity = 1;
-  $('svg', ptrEl).style.transform = '';
   ptrEl.classList.add('loading');
   if (state.setup) await sync();
   else { await wait(600); toast('ยังไม่ได้เชื่อมต่อ Google Sheet'); }
   resetPull(inner);
 }
 
-// ปัดจากขอบซ้ายเพื่อย้อนกลับ (เหมือนแอป iOS)
+// ปัดจากขอบซ้ายเพื่อปิดหน้าตั้งค่า
 let edge = null;
-const BACK_SHIFT = 22; // หน้าด้านหลังถูกเลื่อนไปทางซ้าย 22% (ตรงกับ animation shell-back)
 document.addEventListener('touchstart', (e) => {
   const sheet = topSheet();
   const tc = e.touches[0];
   if (!sheet || tc.clientX > 24) return;
-  edge = { sheet, below: $('.shell'), x: tc.clientX, t: performance.now(), dx: 0, started: false };
+  edge = { sheet, x: tc.clientX, t: performance.now(), dx: 0, started: false };
 }, { passive: true });
 document.addEventListener('touchmove', (e) => {
   if (!edge) return;
-  const { sheet, below } = edge;
+  const { sheet } = edge;
   if (!edge.started) {
     edge.started = true;
     sheet.classList.remove('opening');
-    below.classList.remove('pushed', 'unpushed');
-    for (const el of [sheet, below]) el.style.transition = 'none';
+    sheet.style.transition = 'none';
   }
   edge.dx = Math.max(0, e.touches[0].clientX - edge.x);
-  const p = Math.min(1, edge.dx / innerWidth);
   sheet.style.transform = `translateX(${edge.dx}px)`;
-  sheet.style.boxShadow = '-12px 0 30px rgba(0,0,0,.25)';
-  below.style.transform = `translateX(${-BACK_SHIFT * (1 - p)}%)`;
-  below.style.opacity = String(0.6 + 0.4 * p);
   e.preventDefault();
 }, { passive: false });
 document.addEventListener('touchend', () => {
   if (!edge) return;
-  const { sheet, below, dx, t: t0, started } = edge;
+  const { sheet, dx, t: t0, started } = edge;
   edge = null;
   if (!started) return;
-  const ease = 'cubic-bezier(.22, 1, .36, 1)';
-  for (const el of [sheet, below]) el.style.transition = `transform .3s ${ease}, opacity .3s ${ease}`;
+  sheet.style.transition = 'transform .26s cubic-bezier(.22, 1, .36, 1)';
   const commit = dx > innerWidth * 0.33 || dx / Math.max(1, performance.now() - t0) > 0.5;
-  if (commit) {
-    sheet.style.transform = 'translateX(100%)';
-    below.style.transform = 'translateX(0)';
-    below.style.opacity = '1';
-    setTimeout(() => {
-      closeTop({ instant: true });
-      for (const el of [sheet, below]) { el.style.transition = ''; el.style.transform = ''; el.style.opacity = ''; el.style.boxShadow = ''; }
-    }, 300);
-  } else {
-    // ปัดไม่สุด: เด้งกลับ หน้าด้านหลังค้างไว้ที่ตำแหน่งถูกเลื่อน (เก็บเป็น inline style)
-    sheet.style.transform = '';
-    below.style.transform = `translateX(-${BACK_SHIFT}%)`;
-    below.style.opacity = '0.6';
-    below.dataset.inline = '1';
-    setTimeout(() => { sheet.style.transition = ''; sheet.style.boxShadow = ''; below.style.transition = ''; }, 320);
-  }
+  sheet.style.transform = commit ? 'translateX(100%)' : '';
+  setTimeout(() => {
+    sheet.style.transition = '';
+    if (commit) closeTop({ instant: true });
+  }, 260);
 });
 
 /* ---------- wiring ---------- */
@@ -594,8 +577,14 @@ $('#syncBtn').addEventListener('click', () => {
 
 document.addEventListener('click', (e) => {
   if (e.target.closest('[data-close]')) { closeTop(); return; }
-  const fixedOpener = e.target.closest('[data-open-fixed]');
-  if (fixedOpener) { state.fixYm = fixedOpener.dataset.openFixed; render(); open('fixed'); return; }
+  const tab = e.target.closest('[data-tab]');
+  if (tab) { showTab(tab.dataset.tab); return; }
+  const goto = e.target.closest('[data-goto]');
+  if (goto) {
+    if (goto.dataset.fix) state.fixYm = goto.dataset.fix;
+    showTab(goto.dataset.goto);
+    return;
+  }
   const opener = e.target.closest('[data-open]');
   if (opener) { open(opener.dataset.open); return; }
   const step = e.target.closest('[data-step]');
