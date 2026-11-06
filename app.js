@@ -1,6 +1,6 @@
 'use strict';
 
-const APP_VERSION = '2026.11.07.10';
+const APP_VERSION = '2026.11.07.11';
 const KEYS = { setup: 'fa.setup', data: 'fa.data', synced: 'fa.synced', buddy: 'fa.buddy' };
 
 const $ = (s, el = document) => el.querySelector(s);
@@ -128,12 +128,12 @@ const TITLES = { today: 'วันนี้', cycles: 'รอบเงินเ�
 const whole = (n) => (Number.isFinite(n) ? Math.round(n).toLocaleString('en-US') : '–');
 const money = (n) => (Number.isInteger(n) ? whole(n) : baht(n));
 const bigNum = (n) => { const [w, d] = baht(Math.abs(n)).split('.'); return `${n < 0 ? '−' : ''}${w}<i>.${d}</i>`; };
-// หลอดน้ำ: น้ำเต็มหลอดไม่ต้องมีผิวน้ำ หลอดว่างไม่มีน้ำ
+// หลอดน้ำ: หลอดว่างไม่มีน้ำและไม่เรือง
 const bar = (pct) => {
   const p = Math.max(0, Math.min(100, pct));
   if (p <= 0) return '<div class="tube"><div class="tube-in"></div></div>';
   const w = `width:${p.toFixed(1)}%`;
-  return `<div class="tube"><span class="tube-glow" style="${w}"></span><div class="tube-in"><i class="${p >= 100 ? 'full' : ''}" style="${w}"></i></div></div>`;
+  return `<div class="tube"><span class="tube-glow" style="${w}"></span><div class="tube-in"><i style="${w}"></i></div></div>`;
 };
 const pager = (id, title, sub, back, hasPrev, hasNext) => `<div class="pager" id="${id}">
   <button class="icon-btn" data-step="-1" aria-label="ก่อนหน้า" ${hasPrev ? '' : 'disabled'}>${CHEV_L}</button>
