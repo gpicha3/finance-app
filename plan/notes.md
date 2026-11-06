@@ -13,7 +13,7 @@ iPhone (PWA)  ⇄  Google Apps Script (Web App + TOKEN)  ⇄  Google Sheet "Fina
   - `app.js` คือหน้าจอ, การเชื่อมต่อ, gesture
 - **Backend:** `apps-script/Code.gs` (อยู่ใน `.gitignore` เพราะมี TOKEN และยอดผ่อน — ห้าม push) ไฟล์นี้มีอยู่ในเครื่องนี้เท่านั้น
 - **v1 ดูอย่างเดียว:** ไม่มีฟอร์มเพิ่ม/แก้/ลบ และไม่มี `doPost`
-- **โฮสต์:** ยังไม่ได้สร้าง repo หรือ deploy (รอเจ้าของสั่ง)
+- **โฮสต์:** GitHub Pages ที่ https://gpicha3.github.io/finance-app/ (repo `gpicha3/finance-app`, public)
 
 ## ชีตใน Sheet
 
@@ -73,9 +73,12 @@ iPhone (PWA)  ⇄  Google Apps Script (Web App + TOKEN)  ⇄  Google Sheet "Fina
 
 ## Deploy แอป
 
-- ยังไม่ได้ทำ ถ้าใช้ GitHub Pages แบบ fuel-logger: repo ใต้บัญชี gpicha3, push ผ่าน SSH alias `github.com-personal`, ใช้ `gh` ผ่าน `GH_TOKEN=$(gh auth token --user gpicha3)` (อย่าใช้ `gh auth switch`)
+- push ขึ้น `main` = deploy ทันที (GitHub Pages)
+- push ด้วยบัญชีส่วนตัวผ่าน SSH alias `github.com-personal`
+- ใช้ `gh` กับบัญชี gpicha3 ผ่าน `GH_TOKEN=$(gh auth token --user gpicha3)` (อย่าใช้ `gh auth switch`)
+- repo เป็น public: งบ 6,400 ใน `calc.js` และโน้ตนี้มองเห็นได้ เจ้าของรับทราบแล้ว
 - **ทุกครั้งที่แก้ไฟล์แอป ให้เพิ่มเลขเวอร์ชัน `CACHE` ใน `sw.js`** ไม่อย่างนั้น iPhone อาจยังใช้ไฟล์เก่า
-- ตกลงกันไว้: แก้เสร็จให้ commit ในเครื่องก่อน และสร้าง repo / deploy เมื่อเจ้าของสั่งเท่านั้น
+- ตกลงกันไว้: แก้เสร็จให้ commit ในเครื่องก่อน และ deploy เมื่อเจ้าของสั่งเท่านั้น
 - ห้าม commit ข้อมูลการเงินจริง: ข้อมูลตัวอย่างในแอปและเทสต์เป็นตัวเลขสมมติ
 
 ## ทดสอบในเครื่อง
