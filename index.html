@@ -33,66 +33,74 @@
         <section class="view" id="view-loans" hidden></section>
         <section class="view" id="view-settings" hidden>
           <div class="set-page">
-      <h3 class="set-title">โหมด</h3>
-      <div class="segmented" id="themeSeg">
-        <button type="button" data-theme-mode="auto">อัตโนมัติ</button>
-        <button type="button" data-theme-mode="light">สว่าง</button>
-        <button type="button" data-theme-mode="dark">มืด</button>
-      </div>
+            <h3 class="set-title" data-i18n="set_mode"></h3>
+            <div class="segmented" id="themeSeg">
+              <i class="seg-glider" aria-hidden="true"></i>
+              <button type="button" data-theme-mode="auto" data-i18n="mode_auto"></button>
+              <button type="button" data-theme-mode="light" data-i18n="mode_light"></button>
+              <button type="button" data-theme-mode="dark" data-i18n="mode_dark"></button>
+            </div>
 
-      <h3 class="set-title">สีพื้นหลัง</h3>
-      <section class="panel"><div class="palettes" id="palettes"></div></section>
+            <h3 class="set-title" data-i18n="set_language"></h3>
+            <div class="segmented" id="langSeg">
+              <i class="seg-glider" aria-hidden="true"></i>
+              <button type="button" data-lang="th">ไทย</button>
+              <button type="button" data-lang="en">English</button>
+            </div>
 
-      <h3 class="set-title">ตัวละคร</h3>
-      <section class="panel"><div class="buddies" id="buddies"></div></section>
+            <h3 class="set-title" data-i18n="set_palette"></h3>
+            <section class="panel"><div class="palettes" id="palettes"></div></section>
 
-      <h3 class="set-title">Google Sheet</h3>
-      <section class="panel">
-        <div class="set-row" id="connCard">
-          <div class="set-text">
-            <b>เชื่อมต่อแล้ว</b>
-            <small id="connUrl"></small>
-            <small id="connSynced"></small>
+            <h3 class="set-title" data-i18n="set_buddy"></h3>
+            <section class="panel"><div class="buddies" id="buddies"></div></section>
+
+            <h3 class="set-title">Google Sheet</h3>
+            <section class="panel">
+              <div class="set-row" id="connCard">
+                <div class="set-text">
+                  <b data-i18n="connected"></b>
+                  <small id="connSynced"></small>
+                </div>
+                <span class="conn-dot" aria-hidden="true"></span>
+              </div>
+              <div class="set-actions" id="connActions">
+                <button type="button" class="btn ghost" id="editLinkBtn" data-i18n="edit_setup"></button>
+                <button type="button" class="btn danger" id="clearSetupBtn" data-i18n="disconnect"></button>
+              </div>
+              <div id="setupEditor" class="setup">
+                <label class="field">
+                  <span>Setup code</span>
+                  <textarea id="setupInput" rows="4" placeholder="https://script.google.com/macros/s/…/exec?k=…" autocomplete="off" autocapitalize="off" spellcheck="false"></textarea>
+                  <small class="hint" data-i18n="setup_hint"></small>
+                </label>
+                <p id="settingsStatus" class="hint"></p>
+                <div class="set-actions flush">
+                  <button type="button" class="btn ghost" id="cancelEditBtn" data-i18n="cancel"></button>
+                  <button type="button" class="btn primary" id="saveSetupBtn" data-i18n="connect"></button>
+                </div>
+              </div>
+            </section>
+
+            <p class="set-foot">Finance · <span id="appVersion"></span></p>
           </div>
-          <span class="conn-dot" aria-hidden="true"></span>
-        </div>
-        <div class="set-actions" id="connActions">
-          <button type="button" class="btn ghost" id="editLinkBtn">แก้ Setup code</button>
-          <button type="button" class="btn danger" id="clearSetupBtn">เลิกเชื่อมต่อ</button>
-        </div>
-        <div id="setupEditor" class="setup">
-          <label class="field">
-            <span>Setup code</span>
-            <textarea id="setupInput" rows="4" placeholder="https://script.google.com/macros/s/…/exec?k=…" autocomplete="off" autocapitalize="off" spellcheck="false"></textarea>
-            <small class="hint">วางลิงก์ Web app ตามด้วย ?k= และ TOKEN ที่ตั้งไว้ใน Apps Script</small>
-          </label>
-          <p id="settingsStatus" class="hint"></p>
-          <div class="set-actions flush">
-            <button type="button" class="btn ghost" id="cancelEditBtn">ยกเลิก</button>
-            <button type="button" class="btn primary" id="saveSetupBtn">เชื่อมต่อ</button>
-          </div>
-        </div>
-      </section>
-
-      <p class="set-foot">Finance · <span id="appVersion"></span></p>
-    </div>
         </section>
       </div>
     </main>
 
-    <nav class="tabs" id="tabs" aria-label="เมนูหลัก">
+    <nav class="tabs" id="tabs">
       <i class="tab-glider" aria-hidden="true"></i>
-      <button data-tab="today" class="active" aria-current="page"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></svg><span>วันนี้</span></button>
-      <button data-tab="cycles"><svg viewBox="0 0 24 24"><rect x="4" y="5.5" width="16" height="14.5" rx="2.5"/><path d="M4 10h16M8.5 3v4M15.5 3v4"/></svg><span>รอบเงิน</span></button>
-      <button data-tab="fixed"><svg viewBox="0 0 24 24"><path d="M6 3.5h12v17l-3-2-3 2-3-2-3 2z"/><path d="M9.5 8.5h5M9.5 12.5h5"/></svg><span>Fixed</span></button>
-      <button data-tab="loans"><svg viewBox="0 0 24 24"><rect x="3" y="5.5" width="18" height="13" rx="2.5"/><path d="M3 10h18M7 15h4"/></svg><span>ผ่อน</span></button>
-      <button data-tab="settings"><svg viewBox="0 0 24 24"><path d="M4 7h9M18 7h2M4 17h2M11 17h9"/><circle cx="15.5" cy="7" r="2.5"/><circle cx="8.5" cy="17" r="2.5"/></svg><span>ตั้งค่า</span></button>
+      <button data-tab="today" class="active" aria-current="page"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/></svg><span data-i18n="nav_today"></span></button>
+      <button data-tab="cycles"><svg viewBox="0 0 24 24"><rect x="4" y="5.5" width="16" height="14.5" rx="2.5"/><path d="M4 10h16M8.5 3v4M15.5 3v4"/></svg><span data-i18n="nav_cycles"></span></button>
+      <button data-tab="fixed"><svg viewBox="0 0 24 24"><path d="M6 3.5h12v17l-3-2-3 2-3-2-3 2z"/><path d="M9.5 8.5h5M9.5 12.5h5"/></svg><span data-i18n="nav_fixed"></span></button>
+      <button data-tab="loans"><svg viewBox="0 0 24 24"><rect x="3" y="5.5" width="18" height="13" rx="2.5"/><path d="M3 10h18M7 15h4"/></svg><span data-i18n="nav_loans"></span></button>
+      <button data-tab="settings"><svg viewBox="0 0 24 24"><path d="M4 7h9M18 7h2M4 17h2M11 17h9"/><circle cx="15.5" cy="7" r="2.5"/><circle cx="8.5" cy="17" r="2.5"/></svg><span data-i18n="nav_settings"></span></button>
     </nav>
   </div>
 
   <div id="toast" class="toast" role="status" hidden></div>
 
   <script src="calc.js"></script>
+  <script src="i18n.js"></script>
   <script src="buddies.js"></script>
   <script src="app.js"></script>
 </body>

@@ -135,15 +135,28 @@ test('ความเต็มของใบ: เต็มเมื่อไม
   assert.equal(C.budgetSummary({ expense: 6401 }, today).leaves, 0.08);
 });
 
-test('อารมณ์ตัวละคร: ดีเมื่อไม่เร็วกว่าแผน แย่เมื่อเร็วกว่ามากหรือเกินงบ', () => {
-  const today = D('2026-11-06'); // แผน 2,560 งบ 7 วัน = 1,493.33
-  const mood = (expense) => C.moodOf(C.budgetSummary({ expense }, today).leaves);
+test('อารมณ์ตัวละคร: ดีเมื่อไม่เร็วกว่าแผน กลางเมื่อเร็วเล็กน้อย แย่เมื่อเร็วเกินครึ่งวันของงบหรือเกินงบ', () => {
+  const today = D('2026-11-06'); // แผน 2,560 งบต่อวัน 213.33 ครึ่งวัน 106.67
+  const mood = (expense) => C.budgetSummary({ expense }, today).mood;
   assert.equal(mood(2000), 'good');
   assert.equal(mood(2560), 'good');
-  assert.equal(mood(2800), 'ok');
-  assert.equal(mood(3490), 'ok'); // ใบครึ่งต้นอยู่ที่ยอดประมาณ 3,493
-  assert.equal(mood(3500), 'bad');
+  assert.equal(mood(2600), 'ok');
+  assert.equal(mood(2666), 'ok');
+  assert.equal(mood(2777), 'bad');
   assert.equal(mood(6401), 'bad');
+});
+
+test('ภาษาอังกฤษ: วันที่และชื่อรอบเปลี่ยนตามภาษา แต่ข้อความรอบที่อ่านจากชีตยังเป็นไทย', () => {
+  C.setLang('en');
+  try {
+    assert.equal(C.fmtDate(D('2026-11-25')), '25 Nov 2026');
+    assert.equal(C.fmtYmLong('2026-11'), 'November 2026');
+    assert.equal(C.cycleName('2026-10'), 'Nov 2026 cycle');
+    assert.equal(C.thDayMonth(D('2026-10-26')), '26 ต.ค.');
+  } finally {
+    C.setLang('th');
+  }
+  assert.equal(C.fmtDate(D('2026-11-25')), '25 พ.ย. 2026');
 });
 
 test('ชื่อรอบตามบล็อก Fix cost', () => {

@@ -49,7 +49,7 @@ svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width:
 [hidden] { display: none !important; }
 
 /* ---------- กระจก ---------- */
-.panel, .icon-btn, .banner, .segmented, .ptr, .payday {
+.panel, .banner, .segmented, .ptr, .payday {
   background: linear-gradient(180deg, var(--glass-sheen), transparent 46%), var(--glass);
   -webkit-backdrop-filter: blur(22px) saturate(175%); backdrop-filter: blur(22px) saturate(175%);
   border: 1px solid var(--glass-edge);
@@ -92,10 +92,7 @@ svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width:
 .payday { position: relative; flex: none; overflow: hidden; border-radius: 99px; padding: 7px 14px; font-size: 12.5px; font-weight: 500; font-variant-numeric: tabular-nums; }
 .payday i { position: absolute; inset: 0 auto 0 0; border-radius: 99px; background: color-mix(in srgb, var(--accent) 26%, transparent); transition: width .6s var(--ease); }
 .payday span { position: relative; }
-.icon-btn { width: 40px; height: 40px; border-radius: 50%; flex: none; display: grid; place-items: center; color: var(--text); transition: transform .15s, opacity .15s; }
-.icon-btn:active { transform: scale(.92); }
-.icon-btn:disabled { opacity: .3; }
-.icon-btn.busy svg, .ptr.loading svg { animation: spin .8s linear infinite; }
+.ptr.loading svg { animation: spin .8s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
 .scroll { flex: 1; min-height: 0; overflow-x: hidden; overflow-y: auto; overscroll-behavior-y: none; -webkit-overflow-scrolling: touch; }
 .page { max-width: 640px; margin: 0 auto; padding: calc(var(--head) + 8px) 16px calc(env(safe-area-inset-bottom) + 104px); transition: transform .3s var(--ease); }
@@ -174,7 +171,17 @@ button.panel:active { transform: scale(.98); }
   21%, 100% { opacity: 0; transform: translate(9px, 36px) rotate(230deg); }
 }
 /* ตัวละครอื่น */
-.buddy.poke svg { transform-origin: 50% 96%; animation: b-poke .65s var(--ease); }
+/* แตะตัวละคร: ต้นไม้สั่นอยู่กับที่และใบร่วง หมาแมวทำหน้าเคลิ้ม คนกระโดดคนเดียว */
+.buddy.shake .t-all { animation: t-shake .75s ease-in-out; }
+.t-burst { opacity: 0; animation: t-burst 1.25s ease-in both; }
+.b-face { transition: opacity .14s; }
+.b-bliss { opacity: 0; transition: opacity .14s; }
+.buddy.bliss .b-face { opacity: 0; }
+.buddy.bliss .b-bliss { opacity: 1; }
+.buddy.bliss .b-all { animation: b-nuzzle .55s ease-in-out 3; }
+.b-person { transform-origin: 50px 94px; }
+.buddy.jump .b-person { animation: b-jump .72s var(--ease); }
+.buddy.jump .b-all { animation: none; }
 .b-line { fill: none; stroke-width: 2.6; stroke-linecap: round; stroke-linejoin: round; }
 .b-line.thin { stroke-width: 2; }
 .b-all { transform-origin: 50px 94px; animation: b-bob 2.6s ease-in-out infinite; }
@@ -193,7 +200,10 @@ button.panel:active { transform: scale(.98); }
 .b-tear { animation: b-tear 3s ease-in infinite; }
 .b-heart { opacity: 0; animation: b-heart 3.6s ease-out infinite; }
 .b-heart.h2 { animation-delay: -1.8s; }
-@keyframes b-poke { 0% { transform: scale(1.06, .92); } 40% { transform: translateY(-9%) scale(.97, 1.05); } 75% { transform: scale(1.04, .96); } 100% { transform: none; } }
+@keyframes t-shake { 0%, 100% { transform: none; } 12% { transform: rotate(-2.8deg); } 28% { transform: rotate(2.6deg); } 44% { transform: rotate(-2.2deg); } 60% { transform: rotate(1.8deg); } 78% { transform: rotate(-1deg); } }
+@keyframes t-burst { 0% { opacity: 0; transform: none; } 12% { opacity: .95; } 70% { opacity: .7; } 100% { opacity: 0; transform: translate(var(--dx), var(--dy)) rotate(210deg); } }
+@keyframes b-nuzzle { 0%, 100% { transform: none; } 50% { transform: translateY(-2.5px) scale(1.02, .98); } }
+@keyframes b-jump { 0% { transform: scale(1.06, .92); } 38% { transform: translateY(-17px) scale(.97, 1.04); } 72% { transform: scale(1.05, .94); } 100% { transform: none; } }
 @keyframes b-bob { 0%, 100% { transform: none; } 50% { transform: translateY(-2.4px) scale(1.012, .988); } }
 @keyframes b-sigh { 0%, 100% { transform: none; } 50% { transform: translateY(1.2px) scale(1.01, .985); } }
 @keyframes b-blink { 0%, 93%, 100% { transform: none; } 96% { transform: scaleY(.1); } }
@@ -222,6 +232,8 @@ button.panel:active { transform: scale(.98); }
 .num.long { font-size: min(42px, 11.5vw); }
 .num b { font-weight: inherit; }
 .num b.bad { color: var(--bad); }
+.big b { font-weight: inherit; }
+.big b.bad { color: var(--bad); }
 .num i, .big i { font-style: normal; font-size: .42em; letter-spacing: 0; color: var(--muted); }
 .status { display: inline-flex; align-items: center; gap: 5px; font-size: 13.5px; font-weight: 600; padding: 4px 12px; border-radius: 99px; font-variant-numeric: tabular-nums; }
 .status svg { width: 15px; height: 15px; stroke-width: 2.6; flex: none; }
@@ -272,10 +284,15 @@ button.panel:active { transform: scale(.98); }
 @keyframes page-in { from { opacity: 0; transform: translateX(calc(var(--dir, 0) * 30px)) scale(.985); } }
 
 /* ---------- ปุ่มเลื่อนรอบ ---------- */
-.pager { display: flex; align-items: center; gap: 4px; margin-bottom: 12px; }
-.pager-title { flex: 1; min-width: 0; text-align: center; }
+.pager { margin-bottom: 12px; text-align: center; }
 .pager-title b { display: block; font-size: 17px; font-weight: 600; line-height: 1.25; }
 .pager-title small { display: block; font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums; }
+.pager-dots { display: flex; justify-content: center; gap: 5px; margin-top: 7px; }
+.pager-dots i { width: 6px; height: 6px; border-radius: 50%; background: var(--hair); transition: background .2s, width .2s; }
+.pager-dots i.on { width: 16px; border-radius: 3px; background: var(--accent); }
+/* ปัดซ้ายขวาเปลี่ยนรอบ ส่วนแนวตั้งยังเลื่อนหน้าได้ */
+#view-cycles, #view-fixed { touch-action: pan-y; transition: transform .28s var(--ease); }
+#view-cycles.swiping, #view-fixed.swiping { transition: none; }
 .pager-back { text-align: center; font-size: 13px; margin: -6px 0 10px; }
 .pager-back button { font-weight: 600; color: var(--accent); }
 
@@ -347,9 +364,15 @@ details[open] > :not(summary) { animation: open-in .32s var(--ease); }
 .set-page > .set-title:first-child { margin-top: 0; }
 .set-title { margin: 18px 6px 8px; font-size: 13.5px; font-weight: 600; color: var(--muted); }
 .set-title + .panel { margin-top: 0; }
-.segmented { display: flex; border-radius: 16px; padding: 3px; }
-.segmented button { flex: 1; text-align: center; padding: 9px 6px; font-size: 15px; border-radius: 12px; color: var(--muted); transition: background .2s; }
-.segmented button.active { background: var(--accent); color: var(--on-accent); font-weight: 600; }
+.segmented { --i: 0; --n: 3; position: relative; display: flex; border-radius: 16px; padding: 3px; touch-action: pan-y; }
+.seg-glider {
+  position: absolute; top: 3px; bottom: 3px; left: 3px; width: calc((100% - 6px) / var(--n)); border-radius: 12px;
+  background: linear-gradient(180deg, rgba(255,255,255,.28), transparent 55%), var(--accent);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.45); transform: translateX(calc(var(--i) * 100%)); transition: transform .42s cubic-bezier(.3, 1.45, .5, 1);
+}
+.segmented.dragging .seg-glider { transform: translateX(var(--x, 0)) scale(1.05, 1.12); transition: transform .1s ease-out; }
+.segmented button { position: relative; flex: 1; text-align: center; padding: 9px 6px; font-size: 15px; border-radius: 12px; color: var(--muted); transition: color .25s; }
+.segmented button.active { color: var(--on-accent); font-weight: 600; }
 .segmented.locked { opacity: .45; pointer-events: none; }
 .palettes { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; padding: 14px 16px; }
 .palette { display: flex; flex-direction: column; align-items: center; gap: 5px; font-size: 13px; color: var(--muted); text-align: center; }

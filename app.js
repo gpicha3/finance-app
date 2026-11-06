@@ -1,6 +1,6 @@
 'use strict';
 
-const APP_VERSION = '2026.11.07.11';
+const APP_VERSION = '2026.11.07.12';
 const KEYS = { setup: 'fa.setup', data: 'fa.data', synced: 'fa.synced', buddy: 'fa.buddy' };
 
 const $ = (s, el = document) => el.querySelector(s);
@@ -33,7 +33,7 @@ function demoData() {
   const key = Calc.cycleKeyOf(today());
   const label = (k) => {
     const p = Calc.budgetPeriod(k);
-    return `${Calc.fmtDayMonth(p.start)}–${Calc.fmtDayMonth(p.end)}`;
+    return `${Calc.thDayMonth(p.start)}–${Calc.thDayMonth(p.end)}`;
   };
   const iso = (k, day) => {
     const d = Calc.ymDay(k, day);
@@ -104,10 +104,10 @@ async function sync({ quiet = false } = {}) {
   state.loading = true;
   try {
     saveData(await apiGet(state.setup));
-    if (!quiet) toast('อัปเดตข้อมูลแล้ว');
+    if (!quiet) toast(t('updated'));
   } catch (err) {
     console.error(err);
-    state.syncError = err.message === 'unauthorized' ? 'TOKEN ไม่ถูกต้อง' : !navigator.onLine ? 'ไม่มีอินเทอร์เน็ต' : err instanceof TypeError ? 'เชื่อมต่อไม่สำเร็จ' : err.message;
+    state.syncError = err.message === 'unauthorized' ? t('bad_token') : !navigator.onLine ? t('offline') : err instanceof TypeError ? t('net_failed') : err.message;
     if (!quiet) toast(state.syncError, 3500);
   } finally {
     state.loading = false;
@@ -116,13 +116,11 @@ async function sync({ quiet = false } = {}) {
 }
 
 /* ---------- ส่วนที่ใช้ร่วมกัน ---------- */
-const CHEV_L = '<svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg>';
-const CHEV_R = '<svg viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg>';
 const CHEV_D = '<svg class="chev" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg>';
 const ICON_OK = '<svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>';
 const ICON_UP = '<svg viewBox="0 0 24 24"><path d="M12 19V5M6 11l6-6 6 6"/></svg>';
 const ICON_ALERT = '<svg viewBox="0 0 24 24"><path d="M12 4v10M12 19v.5"/></svg>';
-const TITLES = { today: 'วันนี้', cycles: 'รอบเงินเดือน', fixed: 'Fixed cost', loans: 'การผ่อน', settings: 'ตั้งค่า' };
+const TABS = ['today', 'cycles', 'fixed', 'loans', 'settings'];
 
 // ตัวเลขสรุปปัดเป็นบาทเต็ม ส่วนรายการใช้ยอดจริง (ไม่แสดง .00)
 const whole = (n) => (Number.isFinite(n) ? Math.round(n).toLocaleString('en-US') : '–');
@@ -135,17 +133,21 @@ const bar = (pct) => {
   const w = `width:${p.toFixed(1)}%`;
   return `<div class="tube"><span class="tube-glow" style="${w}"></span><div class="tube-in"><i style="${w}"></i></div></div>`;
 };
-const pager = (id, title, sub, back, hasPrev, hasNext) => `<div class="pager" id="${id}">
-  <button class="icon-btn" data-step="-1" aria-label="ก่อนหน้า" ${hasPrev ? '' : 'disabled'}>${CHEV_L}</button>
+// เลือกรอบด้วยการปัด จุดด้านล่างบอกตำแหน่งจากเก่าไปใหม่
+const pager = (id, title, sub, back, pos, total) => {
+  const from = Math.max(0, Math.min(pos - 3, total - 7));
+  const dots = Array.from({ length: Math.min(7, total) }, (_, i) => `<i class="${from + i === pos ? 'on' : ''}"></i>`).join('');
+  return `<div class="pager" id="${id}">
   <div class="pager-title"><b>${esc(title)}</b><small>${esc(sub)}</small></div>
-  <button class="icon-btn" data-step="1" aria-label="ถัดไป" ${hasNext ? '' : 'disabled'}>${CHEV_R}</button>
+  ${total > 1 ? `<div class="pager-dots" aria-hidden="true">${dots}</div>` : ''}
 </div>${back ? `<div class="pager-back">${back}</div>` : ''}`;
+};
 const isNamed = (c) => !c.key.startsWith('x:');
-const cycleTitle = (c) => (isNamed(c) ? Calc.cycleName(c.key) : (c.label || 'ไม่ระบุรอบ'));
-const cycleRange = (c) => (c.start ? Calc.fmtRange(c.start, c.end) : 'อ่านช่วงวันที่ไม่ได้');
+const cycleTitle = (c) => (isNamed(c) ? Calc.cycleName(c.key) : (c.label || '-'));
+const cycleRange = (c) => (c.start ? Calc.fmtRange(c.start, c.end) : t('range_unreadable'));
 const dayLabel = (s) => { const d = Calc.parseYmd(s); return d ? Calc.fmtDate(d) : esc(s); };
 
-const buddy = (leaves) => renderBuddy(state.buddy, leaves);
+const buddy = (b) => renderBuddy(state.buddy, b.leaves, b.mood);
 
 function viewModel() {
   const data = state.data;
@@ -161,9 +163,9 @@ function viewModel() {
 
 /* ---------- วันนี้ ---------- */
 function paceStatus(b) {
-  if (b.left < 0) return { cls: 'bad', icon: ICON_ALERT, text: `เกินงบ ${money(-b.left)}` };
-  if (b.ahead > 0) return { cls: 'warn', icon: ICON_UP, text: `เร็วกว่าแผน ${money(b.ahead)}` };
-  return { cls: 'good', icon: ICON_OK, text: b.ahead < 0 ? `ช้ากว่าแผน ${money(-b.ahead)}` : 'ตรงตามแผน' };
+  if (b.left < 0) return { cls: 'bad', icon: ICON_ALERT, text: t('over_budget', money(-b.left)) };
+  if (b.ahead > 0) return { cls: 'warn', icon: ICON_UP, text: t('ahead', money(b.ahead)) };
+  return { cls: 'good', icon: ICON_OK, text: b.ahead < 0 ? t('behind', money(-b.ahead)) : t('on_plan') };
 }
 
 function budgetRing(b) {
@@ -171,42 +173,42 @@ function budgetRing(b) {
   const used = b.pct > 0 ? `<circle class="ring-fill ${cls}" cx="60" cy="60" r="53" pathLength="100" stroke-dasharray="${b.pct.toFixed(2)} 100"/>` : '';
   const tick = `<circle class="ring-tick" cx="60" cy="60" r="53" pathLength="100" stroke-dasharray="0.7 100" stroke-dashoffset="${(-(b.plannedPct - 0.35)).toFixed(2)}"/>`;
   const glow = b.pct > 0 ? `<circle class="ring-glow ${cls}" cx="60" cy="60" r="53" pathLength="100" stroke-dasharray="${b.pct.toFixed(2)} 100" filter="url(#ringSoft)"/>` : '';
-  return `<svg viewBox="0 0 120 120" role="img" aria-label="ใช้ไป ${baht(b.used)} จากงบ ${baht(b.budget)} แผนถึงวันนี้ ${baht(b.planned)}"><defs><filter id="ringSoft" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation="2.4"/></filter></defs><circle class="ring-track" cx="60" cy="60" r="53"/>${glow}${used}${tick}</svg>`;
+  return `<svg viewBox="0 0 120 120" role="img" aria-label="${esc(t('ring_aria', baht(b.used), baht(b.budget), baht(b.planned)))}"><defs><filter id="ringSoft" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation="2.4"/></filter></defs><circle class="ring-track" cx="60" cy="60" r="53"/>${glow}${used}${tick}</svg>`;
 }
 
 function renderToday(vm) {
   const el = $('#view-today');
   if (!state.data) {
     el.innerHTML = state.syncError
-      ? `<div class="banner bad">โหลดข้อมูลไม่สำเร็จ: ${esc(state.syncError)}</div>`
-      : '<p class="empty-state">กำลังโหลดข้อมูล…</p>';
+      ? `<div class="banner bad">${esc(t('load_failed', state.syncError))}</div>`
+      : `<p class="empty-state">${t('loading')}</p>`;
     return;
   }
   const b = vm.budget;
   const over = b.spentToday > b.allowedToday;
   const st = paceStatus(b);
   const banner = !state.setup
-    ? '<div class="banner">ข้อมูลตัวอย่าง <button data-tab="settings">เชื่อมต่อ Google Sheet</button></div>'
-    : state.syncError ? `<div class="banner bad">อัปเดตไม่สำเร็จ (${esc(state.syncError)}) แสดงข้อมูลล่าสุดที่มี</div>` : '';
-  const invalid = vm.current.invalid ? `<p class="hint warn">มี ${vm.current.invalid} แถวที่อ่านไม่ได้ จึงไม่ถูกนับ</p>` : '';
+    ? `<div class="banner">${t('demo')} <button data-tab="settings">${t('connect_sheet')}</button></div>`
+    : state.syncError ? `<div class="banner bad">${esc(t('sync_failed', state.syncError))}</div>` : '';
+  const invalid = vm.current.invalid ? `<p class="hint warn">${t('invalid_rows', vm.current.invalid)}</p>` : '';
   const blk = vm.block;
   el.innerHTML = `${banner}
     <section class="panel hero">
       <div class="ring">
         ${budgetRing(b)}
-        ${buddy(b.leaves)}
+        ${buddy(b)}
       </div>
       <div class="today-num">
-        <span>ใช้วันนี้ / ใช้ได้</span>
-        <div class="num ${whole(b.spentToday).length + whole(b.allowedToday).length > 7 ? 'long' : ''}" aria-label="วันนี้ใช้ไป ${baht(b.spentToday)} จากที่ใช้ได้ ${baht(b.allowedToday)}"><b class="${over ? 'bad' : ''}">${whole(b.spentToday)}</b><i> / ${whole(b.allowedToday)}</i></div>
+        <span>${t('today_pair')}</span>
+        <div class="num ${whole(b.spentToday).length + whole(b.allowedToday).length > 7 ? 'long' : ''}" aria-label="${esc(t('today_aria', baht(b.spentToday), baht(b.allowedToday)))}"><b class="${over ? 'bad' : ''}">${whole(b.spentToday)}</b><i> / ${whole(b.allowedToday)}</i></div>
       </div>
       <div class="status ${st.cls}">${st.icon}<span>${esc(st.text)}</span></div>
-      <div class="hero-foot">งบรอบนี้${b.left < 0 ? 'เกิน' : 'เหลือ'} ${whole(Math.abs(b.left))}</div>
+      <div class="hero-foot">${t(b.left < 0 ? 'budget_over' : 'budget_left', whole(Math.abs(b.left)))}</div>
     </section>
     ${invalid}
     <div class="pair">
-      <button class="panel tile" data-goto="fixed" data-fix="${vm.fixYm}"><span>เงินเดือนเหลือ</span><b class="${blk && blk.balance < 0 ? 'bad' : ''}">${blk ? `${blk.balance < 0 ? '−' : ''}${whole(Math.abs(blk.balance))}` : '–'}</b><small>หัก Fixed cost แล้ว</small></button>
-      <button class="panel tile" data-goto="loans"><span>ผ่อนรอบนี้</span><b>${whole(vm.loans.now)}</b><small>${vm.loans.items.filter((i) => !i.done).length - vm.loans.pending.length} รายการ</small></button>
+      <button class="panel tile" data-goto="fixed" data-fix="${vm.fixYm}"><span>${t('salary_left')}</span><b class="${blk && blk.balance < 0 ? 'bad' : ''}">${blk ? `${blk.balance < 0 ? '−' : ''}${whole(Math.abs(blk.balance))}` : '–'}</b><small>${t('after_fixed')}</small></button>
+      <button class="panel tile" data-goto="loans"><span>${t('loans_cycle')}</span><b>${whole(vm.loans.now)}</b><small>${t('item_count', vm.loans.items.filter((i) => !i.done).length - vm.loans.pending.length)}</small></button>
     </div>`;
 }
 
@@ -218,30 +220,30 @@ const itemRow = (r) => `<li>
 
 function renderCycles(vm) {
   const el = $('#view-cycles');
-  if (!state.data) { el.innerHTML = '<p class="empty-state">ยังไม่มีข้อมูล</p>'; return; }
+  if (!state.data) { el.innerHTML = `<p class="empty-state">${t('no_data')}</p>`; return; }
   const list = vm.cycles;
   let idx = list.findIndex((c) => c.key === state.cycleKey);
   if (idx < 0) idx = list.findIndex((c) => c.key === vm.key);
   const c = list[idx];
   state.cycleKey = c.key;
   const left = Calc.round2(Calc.BUDGET - c.expense);
-  const back = c.key === vm.key ? '' : '<button data-cycle-now>กลับรอบปัจจุบัน</button>';
-  el.innerHTML = `${pager('cyclePager', cycleTitle(c), cycleRange(c), back, idx < list.length - 1, idx > 0)}
+  const back = c.key === vm.key ? '' : `<button data-cycle-now>${t('back_current')}</button>`;
+  el.innerHTML = `${pager('cyclePager', cycleTitle(c), cycleRange(c), back, list.length - 1 - idx, list.length)}
     <section class="panel balance">
-      ${buddy(vm.budget.leaves)}
-      <span>ใช้ไป</span>
-      <div class="big">${bigNum(c.expense)}</div>
-      <div class="equation ${left < 0 ? 'bad' : ''}">${left < 0 ? 'เกินงบ' : 'เหลือจากงบ'} ${whole(Math.abs(left))}${c.income ? ` · รับเพิ่ม ${whole(c.income)}` : ''}</div>
+      ${buddy(vm.budget)}
+      <span>${t('left_total')}</span>
+      <div class="big"><b class="${left < 0 ? 'bad' : ''}">${left < 0 ? '−' : ''}${whole(Math.abs(left))}</b><i> / ${whole(Calc.BUDGET)}</i></div>
+      <div class="equation">${t('spent_v', money(c.expense))}${c.income ? ` · ${t('extra_income', whole(c.income))}` : ''}</div>
     </section>
-    ${c.invalid ? `<p class="hint warn">มี ${c.invalid} แถวที่อ่านไม่ได้ จึงไม่ถูกนับ</p>` : ''}
+    ${c.invalid ? `<p class="hint warn">${t('invalid_rows', c.invalid)}</p>` : ''}
     <section class="panel list">
       ${c.categories.length ? c.categories.map((cat) => `<details>
         <summary><span class="row-name">${esc(cat.name)}</span><b>${money(cat.total)}</b>${CHEV_D}${bar(c.expense > 0 ? (cat.total / c.expense) * 100 : 0)}</summary>
         <ul class="items">${cat.rows.map(itemRow).join('')}</ul>
-      </details>`).join('') : '<p class="empty">ไม่มีรายจ่ายในรอบนี้</p>'}
+      </details>`).join('') : `<p class="empty">${t('no_expense')}</p>`}
     </section>
     ${c.incomeRows.length ? `<section class="panel list"><details>
-      <summary><span class="row-name">รายรับ</span><b>${money(c.income)}</b>${CHEV_D}</summary>
+      <summary><span class="row-name">${t('income')}</span><b>${money(c.income)}</b>${CHEV_D}</summary>
       <ul class="items">${c.incomeRows.map(itemRow).join('')}</ul>
     </details></section>` : ''}`;
 }
@@ -250,23 +252,23 @@ function renderCycles(vm) {
 function renderFixed(vm) {
   const el = $('#view-fixed');
   const list = vm.blocks;
-  if (!list.length) { el.innerHTML = '<p class="empty-state">ไม่มีข้อมูลในแท็บ Fix cost</p>'; return; }
+  if (!list.length) { el.innerHTML = `<p class="empty-state">${t('no_fix')}</p>`; return; }
   let idx = list.findIndex((b) => b.ym === state.fixYm);
   if (idx < 0) idx = list.findIndex((b) => b.ym === vm.fixYm);
   if (idx < 0) idx = list.length - 1;
   const b = list[idx];
   state.fixYm = b.ym;
   const range = Calc.fixPeriod(b.ym);
-  const back = b.ym === vm.fixYm ? '' : '<button data-fix-now>กลับรอบปัจจุบัน</button>';
-  el.innerHTML = `${pager('fixPager', Calc.fmtYmLong(b.ym), Calc.fmtRange(range.start, range.end), back, idx > 0, idx < list.length - 1)}
+  const back = b.ym === vm.fixYm ? '' : `<button data-fix-now>${t('back_current')}</button>`;
+  el.innerHTML = `${pager('fixPager', Calc.fmtYmLong(b.ym), Calc.fmtRange(range.start, range.end), back, idx, list.length)}
     <section class="panel balance">
-      ${buddy(vm.budget.leaves)}
-      <span>เงินเหลือ</span>
+      ${buddy(vm.budget)}
+      <span>${t('money_left')}</span>
       <div class="big ${b.balance < 0 ? 'bad' : ''}">${bigNum(b.balance)}</div>
-      <div class="equation">รับ ${whole(b.income)} − จ่าย ${whole(b.total)}</div>
+      <div class="equation">${t('in_out', whole(b.income), whole(b.total))}</div>
     </section>
     <section class="panel">
-      <ul class="items">${b.items.map((i) => `<li><span class="item-name">${esc(i.name)}</span>${i.amount == null ? '<span class="item-amt none">ยังไม่ระบุ</span>' : `<span class="item-amt">${money(i.amount)}</span>`}</li>`).join('')}</ul>
+      <ul class="items">${b.items.map((i) => `<li><span class="item-name">${esc(i.name)}</span>${i.amount == null ? '<span class="item-amt none">-</span>' : `<span class="item-amt">${money(i.amount)}</span>`}</li>`).join('')}</ul>
     </section>`;
 }
 
@@ -301,7 +303,7 @@ function stepChart(steps) {
       + (showDate ? `<text x="${(last ? right : px).toFixed(1)}" y="${H - 8}" text-anchor="${anchor}">${esc(Calc.fmtYm(s.ym))}</text>` : '');
   }).join('');
   const dots = steps.map((s, i) => `<circle class="dot ${i ? '' : 'now'}" cx="${x(s).toFixed(1)}" cy="${y(s.amount).toFixed(1)}" r="${i ? 4 : 5.5}"/>`).join('');
-  return `<div class="chart"><svg viewBox="0 0 ${W} ${H}" role="img" aria-label="ยอดผ่อนต่อเดือนตามเวลา รายละเอียดอยู่ในรายการเดือนที่ยอดเปลี่ยน">
+  return `<div class="chart"><svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(t('chart_aria'))}">
     <defs><linearGradient id="waterGrad" x1="0" y1="0" x2="0" y2="1"><stop class="w-top" offset="0"/><stop class="w-low" offset="1"/></linearGradient><filter id="lineSoft" x="-5%" y="-30%" width="110%" height="160%"><feGaussianBlur stdDeviation="3"/></filter></defs>
     <path class="area" d="${area}"/><path class="glow" d="${d}" filter="url(#lineSoft)"/><path class="line" d="${d}"/><path class="spark" d="${d}" pathLength="100"/>${dots}${labels}
   </svg></div>`;
@@ -311,12 +313,12 @@ const fact = (k, v) => `<div><span>${esc(k)}</span><b>${v}</b></div>`;
 
 function loanRow(i) {
   return `<details>
-    <summary><span class="row-name">${esc(i.name)}</span><b>${i.paid}/${i.totalMonths}</b>${CHEV_D}${bar(i.pct)}<small>${money(i.monthly)} ต่อเดือน · หมด ${esc(Calc.fmtYm(i.endMonth))}</small></summary>
+    <summary><span class="row-name">${esc(i.name)}</span><b>${i.paid}/${i.totalMonths}</b>${CHEV_D}${bar(i.pct)}<small>${t('loan_line', money(i.monthly), esc(Calc.fmtYm(i.endMonth)))}</small></summary>
     <div class="facts">
-      ${fact('ผ่อนแล้ว', money(i.paidAmount))}
-      ${fact('เหลือ', money(i.leftAmount))}
-      ${fact('ยอดเต็ม', money(i.fullAmount))}
-      ${fact('งวดถัดไป', esc(Calc.fmtDate(i.nextDue)))}
+      ${fact(t('paid'), money(i.paidAmount))}
+      ${fact(t('remaining'), money(i.leftAmount))}
+      ${fact(t('full_amount'), money(i.fullAmount))}
+      ${fact(t('next_due'), esc(Calc.fmtDate(i.nextDue)))}
     </div>
   </details>`;
 }
@@ -324,33 +326,33 @@ function loanRow(i) {
 function renderLoans(vm) {
   const el = $('#view-loans');
   const { items, now: monthly, timeline, pending } = vm.loans;
-  if (!items.length) { el.innerHTML = '<p class="empty-state">ไม่มีข้อมูลในแท็บ Installments</p>'; return; }
+  if (!items.length) { el.innerHTML = `<p class="empty-state">${t('no_loans')}</p>`; return; }
   const active = items.filter((i) => !i.done);
   const tl = timeline.map((e) => {
-    const what = [...e.started.map((n) => `เริ่ม ${n}`), ...e.ended.map((n) => `${n} หมด`)].join(' · ');
+    const what = [...e.started.map((n) => t('tl_start', n)), ...e.ended.map((n) => t('tl_end', n))].join(' · ');
     return `<li>
       <b>${esc(Calc.fmtYm(e.ym))}</b><span class="delta">${signed(e.delta)}</span>
-      <small>${esc(what)}</small><small>เหลือ ${baht(e.after)}</small>
+      <small>${esc(what)}</small><small>${t('tl_left', baht(e.after))}</small>
     </li>`;
   }).join('');
   el.innerHTML = `<section class="panel balance">
-      ${buddy(vm.budget.leaves)}
-      <span>ผ่อนต่อเดือน</span>
+      ${buddy(vm.budget)}
+      <span>${t('per_month')}</span>
       <div class="big">${bigNum(monthly)}</div>
-      ${pending.length ? `<div class="equation">ยังไม่รวม ${esc(pending.map((i) => i.name).join(', '))}</div>` : ''}
+      ${pending.length ? `<div class="equation">${esc(t('not_included', pending.map((i) => i.name).join(', ')))}</div>` : ''}
     </section>
     <section class="panel list">
-      ${active.length ? active.map((i) => loanRow(i)).join('') : '<p class="empty">ไม่มีรายการที่กำลังผ่อน</p>'}
+      ${active.length ? active.map((i) => loanRow(i)).join('') : `<p class="empty">${t('no_active')}</p>`}
     </section>
     <section class="panel list">
       ${stepChart(Calc.installmentSteps(vm.loans, vm.now))}
-      ${tl ? `<details><summary><span class="row-name">เดือนที่ยอดเปลี่ยน</span>${CHEV_D}</summary><ul class="tl">${tl}</ul></details>` : '<p class="empty">ไม่มีการเปลี่ยนแปลงข้างหน้า</p>'}
+      ${tl ? `<details><summary><span class="row-name">${t('changes')}</span>${CHEV_D}</summary><ul class="tl">${tl}</ul></details>` : `<p class="empty">${t('no_changes')}</p>`}
     </section>`;
 }
 
 /* ---------- สลับหน้า ---------- */
 function markTab(name) {
-  $('#tabs').style.setProperty('--i', Object.keys(TITLES).indexOf(name));
+  $('#tabs').style.setProperty('--i', TABS.indexOf(name));
   $$('#tabs [data-tab]').forEach((b) => {
     const on = b.dataset.tab === name;
     b.classList.toggle('active', on);
@@ -359,20 +361,9 @@ function markTab(name) {
 }
 
 let enterTimer;
-function showTab(name) {
-  const names = Object.keys(TITLES);
-  const dir = Math.sign(names.indexOf(name) - names.indexOf(state.tab));
-  state.tab = name;
-  markTab(name);
-  $$('.view').forEach((v) => { v.hidden = v.id !== `view-${name}`; });
-  $('#pageTitle').textContent = TITLES[name];
-  $('#scroll').scrollTop = 0;
-  if (name === 'settings') initSettings();
-  render();
-  if (!dir) return;
-  // ชิ้นส่วนเลื่อนเข้าทีละชิ้นตามทิศทางของแท็บ เอาคลาสออกเพื่อไม่ให้เล่นซ้ำตอน sync
-  const view = $(`#view-${name}`);
-  [view, $('#titles')].forEach((el) => {
+// ชิ้นส่วนเลื่อนเข้าทีละชิ้นตามทิศทาง เอาคลาสออกเพื่อไม่ให้เล่นซ้ำตอน sync
+function playEnter(els, dir) {
+  els.forEach((el) => {
     el.style.setProperty('--dir', dir);
     el.classList.remove('enter');
     void el.offsetWidth;
@@ -382,17 +373,38 @@ function showTab(name) {
   enterTimer = setTimeout(() => { $$('.enter').forEach((el) => el.classList.remove('enter')); }, 1100);
 }
 
+function showTab(name) {
+  const dir = Math.sign(TABS.indexOf(name) - TABS.indexOf(state.tab));
+  state.tab = name;
+  markTab(name);
+  $$('.view').forEach((v) => { v.hidden = v.id !== `view-${name}`; });
+  $('#scroll').scrollTop = 0;
+  if (name === 'settings') initSettings();
+  render();
+  if (dir) playEnter([$(`#view-${name}`), $('#titles')], dir);
+}
+
+// เปลี่ยนภาษาทั้งแอป ข้อความในหน้า HTML ใช้ data-i18n ส่วนที่เหลือมาจาก render()
+function applyLanguage() {
+  document.documentElement.lang = LANG;
+  $$('[data-i18n]').forEach((el) => { el.textContent = t(el.dataset.i18n); });
+  $('#tabs').setAttribute('aria-label', t('nav_label'));
+  if (state.tab === 'settings') initSettings();
+  render();
+}
+
 function render() {
   const vm = viewModel();
   renderToday(vm);
   renderCycles(vm);
   renderFixed(vm);
   renderLoans(vm);
+  $('#pageTitle').textContent = t(`title_${state.tab}`);
   $('#pageSub').textContent = state.tab === 'today' && state.data ? `${Calc.fmtDayMonth(vm.current.start)} – ${Calc.fmtDayMonth(vm.current.end)}` : '';
   // ป้ายนับวันเงินเข้า: น้ำในป้ายเพิ่มตามวันที่ผ่านไปของรอบ
   const pay = $('#payday');
   pay.hidden = !state.data || state.tab === 'settings';
-  $('span', pay).textContent = `เงินเข้าอีก ${vm.budget.days} วัน`;
+  $('span', pay).textContent = t('payday', vm.budget.days);
   $('i', pay).style.width = `${Math.max(8, vm.budget.plannedPct).toFixed(1)}%`;
 }
 
@@ -406,22 +418,29 @@ function parseSetup(text) {
   return { url: `${u.origin}${u.pathname}`, k };
 }
 
+function markSeg(seg, value, attr) {
+  const buttons = $$('button', seg);
+  seg.style.setProperty('--n', buttons.length);
+  seg.style.setProperty('--i', Math.max(0, buttons.findIndex((b) => b.dataset[attr] === value)));
+  buttons.forEach((b) => b.classList.toggle('active', b.dataset[attr] === value));
+}
+
 function renderThemeControls() {
   const theme = loadTheme();
   const locked = PALETTES[theme.palette]?.force;
   $('#themeSeg').classList.toggle('locked', !!locked);
-  $$('#themeSeg button').forEach((b) => b.classList.toggle('active', b.dataset.themeMode === (locked || theme.mode)));
+  markSeg($('#themeSeg'), locked || theme.mode, 'themeMode');
   const dark = document.documentElement.getAttribute('data-theme') === 'dark'
     || (theme.mode === 'auto' && matchMedia('(prefers-color-scheme: dark)').matches);
   $('#palettes').innerHTML = Object.entries(PALETTES).map(([id, p]) => `
     <button type="button" class="palette${id === theme.palette ? ' active' : ''}" data-palette="${id}" aria-pressed="${id === theme.palette}">
-      <i style="background:${gradientOf((p[dark ? 'dark' : 'light'] || p.light || p.dark).g)}"><svg viewBox="0 0 24 24"><path d="M5 12l5 5 9-10"/></svg></i>${esc(p.name)}
+      <i style="background:${gradientOf((p[dark ? 'dark' : 'light'] || p.light || p.dark).g)}"><svg viewBox="0 0 24 24"><path d="M5 12l5 5 9-10"/></svg></i>${esc(t(`pal_${id}`))}
     </button>`).join('');
 }
 
 function renderBuddyChoices() {
-  $('#buddies').innerHTML = BUDDIES.map(([id, name]) => `<button type="button" class="buddy-choice${id === state.buddy ? ' active' : ''}" data-choose="${id}" aria-pressed="${id === state.buddy}">
-    <i>${renderBuddy(id, 1)}</i>${esc(name)}
+  $('#buddies').innerHTML = BUDDIES.map((id) => `<button type="button" class="buddy-choice${id === state.buddy ? ' active' : ''}" data-choose="${id}" aria-pressed="${id === state.buddy}">
+    <i>${renderBuddy(id, 1, 'good')}</i>${esc(t(`buddy_${id}`))}
   </button>`).join('');
 }
 
@@ -432,28 +451,37 @@ function renderConnection(editing = false) {
   $('#setupEditor').hidden = connected && !editing;
   $('#cancelEditBtn').hidden = !connected;
   if (connected) {
-    const id = state.setup.url.split('/s/')[1]?.split('/')[0] || '';
-    $('#connUrl').textContent = `script.google.com/…/${id.slice(0, 6)}…${id.slice(-4)}/exec`;
     const at = new Date(state.synced);
-    $('#connSynced').textContent = state.synced ? `อัปเดตล่าสุด ${Calc.fmtDate(at)} ${String(at.getHours()).padStart(2, '0')}:${String(at.getMinutes()).padStart(2, '0')}` : '';
+    $('#connSynced').textContent = state.synced ? t('last_update', `${Calc.fmtDate(at)} ${String(at.getHours()).padStart(2, '0')}:${String(at.getMinutes()).padStart(2, '0')}`) : '';
   }
   $('#setupInput').value = editing && connected ? `${state.setup.url}?k=${state.setup.k}` : '';
-  $('#settingsStatus').textContent = connected ? '' : 'ยังไม่ได้เชื่อมต่อ กำลังแสดงข้อมูลตัวอย่าง';
+  $('#settingsStatus').textContent = connected ? '' : t('not_connected');
   $('#settingsStatus').className = 'hint';
 }
 
 function initSettings() {
   renderThemeControls();
+  markSeg($('#langSeg'), LANG, 'lang');
   renderBuddyChoices();
   renderConnection();
   $('#appVersion').textContent = APP_VERSION;
 }
 
+function pickMode(mode) {
+  saveTheme({ ...loadTheme(), mode });
+  renderThemeControls();
+}
+function pickLanguage(lang) {
+  setLanguage(lang);
+  applyLanguage();
+}
 $('#themeSeg').addEventListener('click', (e) => {
   const b = e.target.closest('[data-theme-mode]');
-  if (!b) return;
-  saveTheme({ ...loadTheme(), mode: b.dataset.themeMode });
-  renderThemeControls();
+  if (b) pickMode(b.dataset.themeMode);
+});
+$('#langSeg').addEventListener('click', (e) => {
+  const b = e.target.closest('[data-lang]');
+  if (b) pickLanguage(b.dataset.lang);
 });
 $('#palettes').addEventListener('click', (e) => {
   const b = e.target.closest('[data-palette]');
@@ -477,11 +505,11 @@ $('#saveSetupBtn').addEventListener('click', async () => {
   const setup = parseSetup($('#setupInput').value);
   const status = $('#settingsStatus');
   if (!setup) {
-    status.textContent = 'รูปแบบไม่ถูกต้อง ต้องเป็นลิงก์ script.google.com ที่มี ?k=';
+    status.textContent = t('bad_setup');
     status.className = 'hint bad';
     return;
   }
-  status.textContent = 'กำลังทดสอบการเชื่อมต่อ…';
+  status.textContent = t('testing');
   status.className = 'hint';
   try {
     const data = await apiGet(setup);
@@ -490,15 +518,15 @@ $('#saveSetupBtn').addEventListener('click', async () => {
     saveData(data);
     state.cycleKey = null; state.fixYm = null;
     showTab('today');
-    toast('เชื่อมต่อแล้ว');
+    toast(t('connected_toast'));
   } catch (err) {
-    status.textContent = err.message === 'unauthorized' ? 'TOKEN ไม่ถูกต้อง' : `เชื่อมต่อไม่สำเร็จ: ${err.message}`;
+    status.textContent = err.message === 'unauthorized' ? t('bad_token') : t('connect_failed', err.message);
     status.className = 'hint bad';
   }
 });
 
 $('#clearSetupBtn').addEventListener('click', () => {
-  if (!confirm('เลิกเชื่อมต่อและลบข้อมูลที่เก็บไว้ในเครื่องนี้? ข้อมูลใน Google Sheet จะไม่ถูกแตะ')) return;
+  if (!confirm(t('confirm_clear'))) return;
   [KEYS.setup, KEYS.data, KEYS.synced].forEach((k) => store.del(k));
   state.setup = null; state.synced = null; state.syncError = null;
   state.data = demoData();
@@ -561,58 +589,138 @@ async function refreshFromPull(inner) {
   ptrEl.style.opacity = 1;
   ptrEl.classList.add('loading');
   if (state.setup) await sync();
-  else { await wait(600); toast('ยังไม่ได้เชื่อมต่อ Google Sheet'); }
+  else { await wait(600); toast(t('no_sheet')); }
   resetPull(inner);
 }
 
-/* ---------- ลากแถบเมนู: ไฮไลท์ตามนิ้ว ปล่อยที่เมนูไหนก็ไปหน้านั้น ---------- */
-(function initNavDrag() {
-  const nav = $('#tabs');
-  const names = Object.keys(TITLES);
+/* ---------- ลากเลือก: ไฮไลท์ตามนิ้ว ปล่อยที่ตัวเลือกไหนก็เลือกตัวนั้น ใช้กับแถบเมนูและปุ่มในหน้าตั้งค่า ---------- */
+function dragSelect(el, { names, preview, commit, restore }) {
   const START = 6; // ขยับเกินเท่านี้จึงนับเป็นการลาก น้อยกว่านี้เป็นการแตะปกติ
   let drag = null;
   let swallowClick = false;
   const geometry = () => {
-    const r = nav.getBoundingClientRect();
-    const inner = nav.clientWidth - 10; // padding แถบเมนูด้านละ 5px
-    return { left: r.left + nav.clientLeft + 5, slot: inner / names.length };
+    const r = el.getBoundingClientRect();
+    const pad = parseFloat(getComputedStyle(el).paddingLeft) || 0;
+    return { left: r.left + el.clientLeft + pad, slot: (el.clientWidth - pad * 2) / names().length };
   };
   const finish = (name) => {
-    nav.classList.remove('dragging');
-    nav.style.removeProperty('--x');
+    el.classList.remove('dragging');
+    el.style.removeProperty('--x');
     drag = null;
-    if (name && name !== state.tab) showTab(name); else markTab(state.tab);
+    if (name) commit(name); else restore();
   };
-  nav.addEventListener('pointerdown', (e) => {
+  el.addEventListener('pointerdown', (e) => {
     if (e.button) return;
-    drag = { id: e.pointerId, x: e.clientX, moved: false };
+    drag = { id: e.pointerId, x: e.clientX, y: e.clientY, moved: false };
   });
-  nav.addEventListener('pointermove', (e) => {
+  el.addEventListener('pointermove', (e) => {
     if (!drag || e.pointerId !== drag.id) return;
     if (!drag.moved) {
       if (Math.abs(e.clientX - drag.x) < START) return;
       drag.moved = true;
-      nav.classList.add('dragging');
-      try { nav.setPointerCapture(e.pointerId); } catch { /* ไม่รองรับก็ลากได้ */ }
+      el.classList.add('dragging');
+      try { el.setPointerCapture(e.pointerId); } catch { /* ไม่รองรับก็ลากได้ */ }
     }
     const { left, slot } = geometry();
-    const pos = Math.max(0, Math.min(slot * (names.length - 1), e.clientX - left - slot / 2));
-    nav.style.setProperty('--x', `${pos}px`);
-    drag.name = names[Math.round(pos / slot)];
-    markTab(drag.name);
+    const list = names();
+    const pos = Math.max(0, Math.min(slot * (list.length - 1), e.clientX - left - slot / 2));
+    el.style.setProperty('--x', `${pos}px`);
+    drag.name = list[Math.round(pos / slot)];
+    preview(drag.name);
   });
-  nav.addEventListener('pointerup', (e) => {
+  el.addEventListener('pointerup', (e) => {
     if (!drag || e.pointerId !== drag.id) return;
     if (!drag.moved) { drag = null; return; }
     swallowClick = true;
     setTimeout(() => { swallowClick = false; }, 300);
     finish(drag.name);
   });
-  nav.addEventListener('pointercancel', () => { if (drag) finish(null); });
-  nav.addEventListener('click', (e) => {
+  el.addEventListener('pointercancel', () => { if (drag) finish(null); });
+  el.addEventListener('click', (e) => {
     if (swallowClick) { swallowClick = false; e.stopPropagation(); }
   }, true);
-})();
+}
+
+dragSelect($('#tabs'), {
+  names: () => TABS,
+  preview: markTab,
+  commit: (name) => { if (name !== state.tab) showTab(name); else markTab(name); },
+  restore: () => markTab(state.tab),
+});
+dragSelect($('#themeSeg'), {
+  names: () => $$('#themeSeg button').map((b) => b.dataset.themeMode),
+  preview: (name) => markSeg($('#themeSeg'), name, 'themeMode'),
+  commit: pickMode,
+  restore: renderThemeControls,
+});
+dragSelect($('#langSeg'), {
+  names: () => $$('#langSeg button').map((b) => b.dataset.lang),
+  preview: (name) => markSeg($('#langSeg'), name, 'lang'),
+  commit: pickLanguage,
+  restore: () => markSeg($('#langSeg'), LANG, 'lang'),
+});
+
+/* ---------- ปัดซ้ายขวาเพื่อเปลี่ยนรอบ ---------- */
+function stepPeriod(kind, d) {
+  const vm = viewModel();
+  if (kind === 'cycles') {
+    // รายการรอบเรียงใหม่ไปเก่า d = 1 คือรอบที่ใหม่กว่า
+    const i = vm.cycles.findIndex((c) => c.key === state.cycleKey);
+    const next = vm.cycles[i - d];
+    if (!next) return false;
+    state.cycleKey = next.key;
+    renderCycles(vm);
+  } else {
+    const i = vm.blocks.findIndex((b) => b.ym === state.fixYm);
+    const next = vm.blocks[i + d];
+    if (!next) return false;
+    state.fixYm = next.ym;
+    renderFixed(vm);
+  }
+  return true;
+}
+
+function swipePeriods(view, kind) {
+  const TRIGGER = 48;
+  let s = null;
+  let swallowClick = false;
+  const reset = () => { view.classList.remove('swiping'); view.style.transform = ''; };
+  view.addEventListener('pointerdown', (e) => {
+    if (e.button) return;
+    s = { id: e.pointerId, x: e.clientX, y: e.clientY, on: false, dx: 0 };
+  });
+  view.addEventListener('pointermove', (e) => {
+    if (!s || e.pointerId !== s.id) return;
+    const dx = e.clientX - s.x, dy = e.clientY - s.y;
+    if (!s.on) {
+      if (Math.abs(dy) > 12 && Math.abs(dy) > Math.abs(dx)) { s = null; return; }
+      if (Math.abs(dx) < 12) return;
+      s.on = true;
+      view.classList.add('swiping');
+      try { view.setPointerCapture(e.pointerId); } catch { /* ไม่รองรับก็ปัดได้ */ }
+    }
+    s.dx = dx;
+    view.style.transform = `translateX(${(dx * 0.35).toFixed(1)}px)`;
+  });
+  view.addEventListener('pointerup', (e) => {
+    if (!s || e.pointerId !== s.id) return;
+    const { on, dx } = s;
+    s = null;
+    if (!on) return;
+    swallowClick = true;
+    setTimeout(() => { swallowClick = false; }, 300);
+    reset();
+    if (Math.abs(dx) < TRIGGER) return;
+    const d = dx < 0 ? 1 : -1;
+    if (stepPeriod(kind, d)) playEnter([view], d);
+  });
+  view.addEventListener('pointercancel', () => { s = null; reset(); });
+  view.addEventListener('click', (e) => {
+    if (swallowClick) { swallowClick = false; e.stopPropagation(); e.preventDefault(); }
+  }, true);
+}
+swipePeriods($('#view-cycles'), 'cycles');
+swipePeriods($('#view-fixed'), 'fixed');
 
 /* ---------- wiring ---------- */
 // แถบบนย่อตัวเมื่อเลื่อนลง
@@ -637,10 +745,13 @@ document.addEventListener('click', (e) => {
   const pet = e.target.closest('[data-buddy]');
   if (pet) {
     if (pet.closest('#buddies')) return; // ในหน้าตั้งค่าแตะเพื่อเลือก ไม่ใช่เล่น
-    pet.classList.remove('poke');
+    const kind = pet.dataset.buddy;
+    const cls = kind === 'tree' ? 'shake' : kind === 'person' ? 'jump' : 'bliss';
+    pet.classList.remove(cls);
     void pet.offsetWidth;
-    pet.classList.add('poke');
-    setTimeout(() => pet.classList.remove('poke'), 700);
+    pet.classList.add(cls);
+    if (kind === 'tree') burstLeaves(pet);
+    setTimeout(() => pet.classList.remove(cls), cls === 'bliss' ? 1700 : 800);
     return;
   }
   const tab = e.target.closest('[data-tab]');
@@ -649,22 +760,6 @@ document.addEventListener('click', (e) => {
   if (goto) {
     if (goto.dataset.fix) state.fixYm = goto.dataset.fix;
     showTab(goto.dataset.goto);
-    return;
-  }
-  const step = e.target.closest('[data-step]');
-  if (step) {
-    const vm = viewModel();
-    const d = Number(step.dataset.step);
-    if (step.closest('#cyclePager')) {
-      // รายการรอบเรียงใหม่ไปเก่า ปุ่มซ้าย (ก่อนหน้า) จึงเลื่อนไปทางรอบเก่า
-      const i = vm.cycles.findIndex((c) => c.key === state.cycleKey);
-      const next = vm.cycles[i - d];
-      if (next) { state.cycleKey = next.key; renderCycles(vm); }
-    } else if (step.closest('#fixPager')) {
-      const i = vm.blocks.findIndex((b) => b.ym === state.fixYm);
-      const next = vm.blocks[i + d];
-      if (next) { state.fixYm = next.ym; renderFixed(vm); }
-    }
     return;
   }
   if (e.target.closest('[data-cycle-now]')) { state.cycleKey = null; render(); return; }
@@ -690,5 +785,5 @@ if ('serviceWorker' in navigator && location.protocol === 'https:') {
   navigator.serviceWorker.register('sw.js').catch(console.error);
 }
 
-render();
+applyLanguage();
 if (state.setup) sync({ quiet: true });

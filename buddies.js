@@ -1,12 +1,7 @@
 'use strict';
 // ตัวละครบอกสถานะเงิน เป็น SVG + CSS ล้วน (แอนิเมชันอยู่ใน styles.css)
-// ต้นไม้ใช้จำนวนใบตามงบ ตัวอื่นใช้อารมณ์ good / ok / bad จาก Calc.moodOf
-const BUDDIES = [
-  ['tree', 'ต้นไม้'],
-  ['person', 'คนกับอากาศ'],
-  ['cat', 'แมว'],
-  ['dog', 'หมา'],
-];
+// ต้นไม้ใช้จำนวนใบตามงบ ตัวอื่นใช้อารมณ์ good / ok / bad จาก Calc.budgetSummary
+const BUDDIES = ['tree', 'person', 'cat', 'dog'];
 
 /* ---------- สไตล์ดินปั้น 3D: ลงสีพื้นก่อน แล้วซ้อนแสงเงาตามรูปทรง ---------- */
 const INK = '#2a2230';
@@ -27,11 +22,17 @@ function eyes(mood, lx, rx, y) {
 }
 const browsSad = (lx, rx, y) => `<path class="b-line thin" d="M${lx - 5} ${y}L${lx + 3} ${y - 3}M${rx + 5} ${y}L${rx - 3} ${y - 3}" style="stroke:${INK}"/>`;
 const mouthAt = (mood, x, y) => {
-  const d = { good: `M${x - 5} ${y}Q${x} ${y + 6} ${x + 5} ${y}`, ok: `M${x - 4} ${y + 1}Q${x} ${y + 3} ${x + 4} ${y + 1}`, bad: `M${x - 4.5} ${y + 3}Q${x} ${y - 2} ${x + 4.5} ${y + 3}` }[mood];
+  const d = { good: `M${x - 5} ${y}Q${x} ${y + 6} ${x + 5} ${y}`, ok: `M${x - 4} ${y + 1.5}H${x + 4}`, bad: `M${x - 4.5} ${y + 3}Q${x} ${y - 2} ${x + 4.5} ${y + 3}` }[mood];
   return `<path class="b-line thin" d="${d}" style="stroke:${INK}"/>`;
 };
 const cheeks = (a, b, y) => `<ellipse cx="${a}" cy="${y}" rx="4" ry="2.6" fill="#ff9aa6" opacity=".6"/><ellipse cx="${b}" cy="${y}" rx="4" ry="2.6" fill="#ff9aa6" opacity=".6"/>`;
 const tear = (x, y) => `<path class="b-tear" d="M${x} ${y}C${x + 3} ${y + 5} ${x + 2.4} ${y + 8} ${x} ${y + 8}C${x - 2.4} ${y + 8} ${x - 3} ${y + 5} ${x} ${y}Z" fill="#6fb6f2"/>`;
+// หน้าเคลิ้มตอนถูกแตะ: ซ่อนอยู่จนกว่า .buddy จะมีคลาส bliss
+const bliss = (lx, rx, y, mx, my, cl, cr, cy) => `<g class="b-bliss">
+  <path class="b-line" d="M${lx - 5} ${y - 1}Q${lx} ${y + 3.5} ${lx + 5} ${y - 1}M${rx - 5} ${y - 1}Q${rx} ${y + 3.5} ${rx + 5} ${y - 1}" style="stroke:${INK}"/>
+  <path class="b-line thin" d="M${mx - 4} ${my}Q${mx - 2} ${my + 3} ${mx} ${my}Q${mx + 2} ${my + 3} ${mx + 4} ${my}" style="stroke:${INK}"/>
+  <ellipse cx="${cl}" cy="${cy}" rx="5.5" ry="3.4" fill="#ff8f9c" opacity=".78"/><ellipse cx="${cr}" cy="${cy}" rx="5.5" ry="3.4" fill="#ff8f9c" opacity=".78"/>
+</g>`;
 const HEART = 'M0 2C-1-2-6-2-6 1.5C-6 5-2 7 0 9C2 7 6 5 6 1.5C6-2 1-2 0 2Z';
 const hearts = (a, b) => `<g transform="translate(${a[0]} ${a[1]})"><path class="b-heart" d="${HEART}" fill="#ff7a9c"/></g><g transform="translate(${b[0]} ${b[1]}) scale(.75)"><path class="b-heart h2" d="${HEART}" fill="#ff7a9c"/></g>`;
 
@@ -91,7 +92,7 @@ function personArt(mood) {
     </g>` : '';
   const body = 'x="30" y="38" width="40" height="52" rx="20"';
   return `${SHADE_DEFS(id)}${sky}<ellipse class="b-ground" cx="50" cy="96" rx="20" ry="2.6"/>
-    <g class="b-all ${mood === 'bad' ? 'droop' : ''}">
+    <g class="b-person"><g class="b-all ${mood === 'bad' ? 'droop' : ''}">
       <path d="M41 88V94M59 88V94" style="stroke:var(--pants)" stroke-width="5.5" stroke-linecap="round"/>
       <rect ${body} fill="#f6cfa8"/>
       <path d="M30 60C30 44 38 38 50 38C62 38 70 44 70 60C64 50 56 48 48 50C40 51 34 54 30 60Z" fill="#4a3528"/>
@@ -103,7 +104,7 @@ function personArt(mood) {
       ${mood === 'bad' ? browsSad(41, 59, 56) : ''}
       ${mouthAt(mood, 50, 67)}
     </g>
-    ${umbrella}`;
+    ${umbrella}</g>`;
 }
 
 /* ---------- แมว ---------- */
@@ -124,12 +125,15 @@ function catArt(mood) {
       <g clip-path="url(#${clip})"><ellipse cx="30" cy="36" rx="17" ry="14" style="fill:var(--cat-patchA)"/><ellipse cx="74" cy="39" rx="14" ry="12" style="fill:var(--cat-patchB)"/></g>
       <ellipse ${head} fill="url(#${id})"/>
       ${gloss(39, 36)}
-      ${mood === 'good' ? cheeks(31, 69, 58) : ''}
-      ${eyes(mood, 38, 62, 50)}
-      ${mood === 'bad' ? browsSad(38, 62, 43) : ''}
       <path d="M47.5 55.5H52.5L50 58.5Z" fill="#e8747c"/>
-      ${mouthAt(mood, 50, 60)}
-      ${mood === 'bad' ? tear(31, 55) : ''}
+      <g class="b-face">
+        ${mood === 'good' ? cheeks(31, 69, 58) : ''}
+        ${eyes(mood, 38, 62, 50)}
+        ${mood === 'bad' ? browsSad(38, 62, 43) : ''}
+        ${mouthAt(mood, 50, 60)}
+        ${mood === 'bad' ? tear(31, 55) : ''}
+      </g>
+      ${bliss(38, 62, 50, 50, 60, 31, 69, 58)}
     </g>`;
 }
 
@@ -148,20 +152,38 @@ function dogArt(mood) {
       ${gloss(40, 35)}
       <g transform="${tilt[0]}">${solid('path', 'd="M28 30Q10 30 12 54Q22 60 28 48Z"', ear, id)}</g>
       <g transform="${tilt[1]}">${solid('path', 'd="M72 30Q90 30 88 54Q78 60 72 48Z"', ear, id)}</g>
-      ${mood === 'good' ? cheeks(32, 68, 58) : ''}
-      ${eyes(mood, 39, 61, 48)}
-      ${mood === 'bad' ? browsSad(39, 61, 41) : ''}
       <ellipse cx="50" cy="56" rx="4" ry="3" fill="${INK}"/>
-      ${mood === 'good' ? '<path class="b-tongue" d="M46 64.5H54V68.5A4 4 0 0 1 46 68.5Z" fill="#ff8a9d"/>' : ''}
-      ${mouthAt(mood, 50, 61)}
-      ${mood === 'bad' ? tear(32, 53) : ''}
+      <g class="b-face">
+        ${mood === 'good' ? cheeks(32, 68, 58) : ''}
+        ${eyes(mood, 39, 61, 48)}
+        ${mood === 'bad' ? browsSad(39, 61, 41) : ''}
+        ${mood === 'good' ? '<path class="b-tongue" d="M46 64.5H54V68.5A4 4 0 0 1 46 68.5Z" fill="#ff8a9d"/>' : ''}
+        ${mouthAt(mood, 50, 61)}
+        ${mood === 'bad' ? tear(32, 53) : ''}
+      </g>
+      ${bliss(39, 61, 48, 50, 61, 32, 68, 58)}
     </g>`;
 }
 
 const BUDDY_ART = { person: personArt, cat: catArt, dog: dogArt };
 
-function renderBuddy(kind, leaves) {
-  const mood = Calc.moodOf(leaves);
+function renderBuddy(kind, leaves, mood) {
   const art = BUDDY_ART[kind] ? BUDDY_ART[kind](mood) : treeArt(leaves);
-  return `<span class="buddy ${mood}" data-buddy aria-hidden="true"><svg viewBox="0 0 100 100">${art}</svg></span>`;
+  return `<span class="buddy ${mood}" data-buddy="${BUDDY_ART[kind] ? kind : 'tree'}" aria-hidden="true"><svg viewBox="0 0 100 100">${art}</svg></span>`;
+}
+
+// แตะต้นไม้: ใบร่วงเพิ่มขึ้นชั่วครู่ แล้วจางหมดก่อนถึงโคนต้น
+function burstLeaves(el) {
+  const svg = el.querySelector('svg');
+  const fill = svg.querySelector('.fall')?.getAttribute('fill');
+  if (!fill) return;
+  const shown = [...svg.querySelectorAll('.t-leaves path')];
+  const picks = Array.from({ length: Math.min(9, shown.length) }, () => shown[Math.floor(Math.random() * shown.length)]);
+  const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+  g.innerHTML = picks.map((p, i) => {
+    const [, x, y] = /translate\(([\d.-]+) ([\d.-]+)\)/.exec(p.getAttribute('transform')) || [];
+    return `<g transform="translate(${x} ${y})"><path class="t-burst" d="${LEAF}" fill="${p.getAttribute('fill')}" style="--dx:${(Math.random() * 12 - 6).toFixed(1)}px;--dy:${(22 + Math.random() * 12).toFixed(1)}px;animation-delay:${(i * 0.07).toFixed(2)}s"/></g>`;
+  }).join('');
+  svg.appendChild(g);
+  setTimeout(() => g.remove(), 2000);
 }

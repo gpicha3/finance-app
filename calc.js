@@ -11,6 +11,12 @@
   const BUDGET = 6400;
   const TH_MONTHS = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'];
   const TH_MONTHS_LONG = ['มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน', 'พฤษภาคม', 'มิถุนายน', 'กรกฎาคม', 'สิงหาคม', 'กันยายน', 'ตุลาคม', 'พฤศจิกายน', 'ธันวาคม'];
+  const EN_MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  const EN_MONTHS_LONG = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+  let lang = 'th';
+  const setLang = (l) => { lang = l === 'en' ? 'en' : 'th'; };
+  const months = () => (lang === 'en' ? EN_MONTHS : TH_MONTHS);
+  const monthsLong = () => (lang === 'en' ? EN_MONTHS_LONG : TH_MONTHS_LONG);
   const CATEGORIES = ['กิน', 'ของใช้', 'เที่ยว', 'เดินทาง', 'อื่นๆ'];
   const EXPENSE = 'รายจ่าย';
   const INCOME = 'รายรับ';
@@ -34,10 +40,12 @@
   const dayNumber = (d) => Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()) / 864e5;
   const daysBetween = (a, b) => dayNumber(b) - dayNumber(a);
 
-  const fmtDayMonth = (d) => `${d.getDate()} ${TH_MONTHS[d.getMonth()]}`;
+  // คอลัมน์รอบเงินเดือนในชีตเป็นภาษาไทยเสมอ ไม่ขึ้นกับภาษาที่แสดง
+  const thDayMonth = (d) => `${d.getDate()} ${TH_MONTHS[d.getMonth()]}`;
+  const fmtDayMonth = (d) => `${d.getDate()} ${months()[d.getMonth()]}`;
   const fmtDate = (d) => `${fmtDayMonth(d)} ${d.getFullYear()}`;
-  const fmtYm = (ym) => { const { y, m } = ymParts(ym); return `${TH_MONTHS[m - 1]} ${y}`; };
-  const fmtYmLong = (ym) => { const { y, m } = ymParts(ym); return `${TH_MONTHS_LONG[m - 1]} ${y}`; };
+  const fmtYm = (ym) => { const { y, m } = ymParts(ym); return `${months()[m - 1]} ${y}`; };
+  const fmtYmLong = (ym) => { const { y, m } = ymParts(ym); return `${monthsLong()[m - 1]} ${y}`; };
   const fmtRange = (a, b) => (a.getFullYear() === b.getFullYear()
     ? `${fmtDayMonth(a)} – ${fmtDate(b)}` : `${fmtDate(a)} – ${fmtDate(b)}`);
 
@@ -101,7 +109,7 @@
         if (!valid) { cycle.invalid += 1; return; }
         if (r.type === INCOME) { cycle.income += r.amount; cycle.incomeRows.push(r); return; }
         cycle.expense += r.amount;
-        const name = String(r.category || '').trim() || 'ไม่ระบุหมวด';
+        const name = String(r.category || '').trim() || '-';
         if (!cats.has(name)) cats.set(name, { name, total: 0, rows: [] });
         const cat = cats.get(name);
         cat.total += r.amount;
@@ -145,20 +153,20 @@
     const spentToday = spentOn(cycle, today);
     const allowedToday = Math.max(0, round2((BUDGET - (used - spentToday)) / days));
     // ความเต็มของใบ: เต็มเมื่อไม่เร็วกว่าแผน ค่อย ๆ ลดจนเร็วกว่าแผนเท่างบ 7 วัน และเกือบหมดเมื่อเกินงบ
-    const pace = (BUDGET / totalDays) * 7;
+    const daily = BUDGET / totalDays;
+    const pace = daily * 7;
     const leaves = left < 0 ? 0.08 : ahead <= 0 ? 1 : 1 - 0.8 * Math.min(1, ahead / pace);
+    // อารมณ์ตัวละคร: ดีเมื่อไม่เร็วกว่าแผน กลางเมื่อเร็วกว่าไม่เกินครึ่งวันของงบ นอกนั้นแย่
+    const mood = left < 0 || ahead > daily / 2 ? 'bad' : ahead > 0 ? 'ok' : 'good';
     return {
       budget: BUDGET, used, left, days, payday, perDay: left > 0 ? round2(left / days) : 0,
       pct: Math.min(100, (used / BUDGET) * 100),
-      planned, plannedPct: (planned / BUDGET) * 100, ahead, spentToday, allowedToday, leaves,
+      planned, plannedPct: (planned / BUDGET) * 100, ahead, spentToday, allowedToday, leaves, mood,
     };
   }
 
-  // อารมณ์ของตัวละครจากความเต็มของใบ: ดีเมื่อไม่เร็วกว่าแผน แย่เมื่อใบเหลือไม่ถึงครึ่ง
-  const moodOf = (leaves) => (leaves >= 1 ? 'good' : leaves >= 0.5 ? 'ok' : 'bad');
-
   // ชื่อรอบตามบล็อก Fix cost เช่น คีย์ 2026-10 = รอบ พ.ย. 2026
-  const cycleName = (key) => `รอบ ${fmtYm(ymAdd(key, 1))}`;
+  const cycleName = (key) => (lang === 'en' ? `${fmtYm(ymAdd(key, 1))} cycle` : `รอบ ${fmtYm(ymAdd(key, 1))}`);
 
   // จุดของกราฟขั้นบันได: ยอดต่อเดือนตอนนี้ ตามด้วยยอดหลังการเปลี่ยนแต่ละครั้ง
   function installmentSteps(summary, today) {
@@ -212,7 +220,7 @@
     round2, parseYmd, ymOf, ymAdd, ymDay, daysBetween,
     fmtDayMonth, fmtDate, fmtYm, fmtYmLong, fmtRange,
     cycleKeyOf, budgetPeriod, fixYmOf, fixPeriod, nextPayday, parseCycleLabel, resolveCycle,
-    buildCycles, budgetSummary, moodOf, cycleName, installmentStatus, installmentSummary, installmentSteps,
+    buildCycles, budgetSummary, cycleName, setLang, thDayMonth, installmentStatus, installmentSummary, installmentSteps,
   };
   root.Calc = api;
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
