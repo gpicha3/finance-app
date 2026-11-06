@@ -2,7 +2,7 @@
 // ข้อความบนหน้าจอ 2 ภาษา ข้อมูลจากชีต เช่น ชื่อหมวดและชื่อรายการ แสดงตามที่อยู่ในชีต
 const STRINGS = {
   th: {
-    title_today: 'วันนี้', title_cycles: 'รอบเงินเดือน', title_fixed: 'Fixed cost', title_loans: 'การผ่อน', title_settings: 'ตั้งค่า',
+    currency: 'บาท', title_today: 'วันนี้', title_cycles: 'รอบเงินเดือน', title_fixed: 'Fixed cost', title_loans: 'การผ่อน', title_settings: 'ตั้งค่า',
     nav_label: 'เมนูหลัก', nav_today: 'วันนี้', nav_cycles: 'รอบเงิน', nav_fixed: 'Fixed', nav_loans: 'ผ่อน', nav_settings: 'ตั้งค่า',
     payday: (n) => `เงินเข้าอีก ${n} วัน`,
     demo: 'ข้อมูลตัวอย่าง', connect_sheet: 'เชื่อมต่อ Google Sheet', sync_failed: (e) => `อัปเดตไม่สำเร็จ (${e}) แสดงข้อมูลล่าสุดที่มี`,
@@ -19,7 +19,7 @@ const STRINGS = {
     no_loans: 'ไม่มีข้อมูลในแท็บ Installments', per_month: 'ผ่อนต่อเดือน', not_included: (v) => `ยังไม่รวม ${v}`,
     loan_line: (a, b) => `${a} ต่อเดือน · หมด ${b}`, paid: 'ผ่อนแล้ว', remaining: 'เหลือ', full_amount: 'ยอดเต็ม', next_due: 'งวดถัดไป',
     no_active: 'ไม่มีรายการที่กำลังผ่อน', chart_timeline: 'ไทม์ไลน์', chart_stack: 'พื้นที่ซ้อน', now: 'ตอนนี้', debt_free: 'ไม่มีหนี้แล้ว', no_changes: 'ไม่มีการเปลี่ยนแปลงข้างหน้า',
-    tl_start: (n) => `เริ่ม ${n}`, tl_end: (n) => `${n} หมด`, tl_left: (v) => `เหลือ ${v}`, chart_aria: 'ยอดผ่อนต่อเดือนตามเวลา แยกตามรายการ รายละเอียดอยู่ในไทม์ไลน์',
+    tl_start: (n) => `เริ่ม ${n}`, tl_end: (n) => `${n} หมด`, tl_left: (v) => `ผ่อนต่อเดือนเหลือ ${v}`, chart_aria: 'ยอดผ่อนต่อเดือนตามเวลา แยกตามรายการ รายละเอียดอยู่ในไทม์ไลน์',
     set_mode: 'โหมด', mode_auto: 'อัตโนมัติ', mode_light: 'สว่าง', mode_dark: 'มืด', set_language: 'ภาษา', set_palette: 'สีพื้นหลัง', set_buddy: 'ตัวละคร',
     pal_sky: 'ฟ้าใส', pal_peach: 'พีช', pal_mint: 'มิ้นต์', pal_lavender: 'ลาเวนเดอร์', pal_pink: 'ชมพู', pal_gold: 'ทอง', pal_white: 'ขาว', pal_black: 'ดำ',
     buddy_tree: 'ต้นไม้', buddy_person: 'คนกับอากาศ', buddy_cat: 'แมว', buddy_dog: 'หมา',
@@ -30,7 +30,7 @@ const STRINGS = {
     updated: 'อัปเดตข้อมูลแล้ว', offline: 'ไม่มีอินเทอร์เน็ต', net_failed: 'เชื่อมต่อไม่สำเร็จ', no_sheet: 'ยังไม่ได้เชื่อมต่อ Google Sheet',
   },
   en: {
-    title_today: 'Today', title_cycles: 'Pay cycles', title_fixed: 'Fixed costs', title_loans: 'Installments', title_settings: 'Settings',
+    currency: 'baht', title_today: 'Today', title_cycles: 'Pay cycles', title_fixed: 'Fixed costs', title_loans: 'Installments', title_settings: 'Settings',
     nav_label: 'Main menu', nav_today: 'Today', nav_cycles: 'Cycles', nav_fixed: 'Fixed', nav_loans: 'Loans', nav_settings: 'Settings',
     payday: (n) => `Payday in ${n} ${n === 1 ? 'day' : 'days'}`,
     demo: 'Sample data', connect_sheet: 'Connect Google Sheet', sync_failed: (e) => `Update failed (${e}). Showing the latest data.`,
@@ -47,7 +47,7 @@ const STRINGS = {
     no_loans: 'No data in the Installments tab', per_month: 'Per month', not_included: (v) => `Not yet including ${v}`,
     loan_line: (a, b) => `${a} a month · ends ${b}`, paid: 'Paid', remaining: 'Remaining', full_amount: 'Full amount', next_due: 'Next payment',
     no_active: 'No active installments', chart_timeline: 'Timeline', chart_stack: 'Stacked', now: 'Now', debt_free: 'Debt free', no_changes: 'No upcoming changes',
-    tl_start: (n) => `${n} starts`, tl_end: (n) => `${n} ends`, tl_left: (v) => `${v} left`, chart_aria: 'Monthly installments over time by item. Details are in the timeline',
+    tl_start: (n) => `${n} starts`, tl_end: (n) => `${n} ends`, tl_left: (v) => `Monthly total now ${v}`, chart_aria: 'Monthly installments over time by item. Details are in the timeline',
     set_mode: 'Mode', mode_auto: 'Auto', mode_light: 'Light', mode_dark: 'Dark', set_language: 'Language', set_palette: 'Background color', set_buddy: 'Character',
     pal_sky: 'Sky', pal_peach: 'Peach', pal_mint: 'Mint', pal_lavender: 'Lavender', pal_pink: 'Pink', pal_gold: 'Gold', pal_white: 'White', pal_black: 'Black',
     buddy_tree: 'Tree', buddy_person: 'Weather person', buddy_cat: 'Cat', buddy_dog: 'Dog',
