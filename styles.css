@@ -244,6 +244,9 @@ button.panel:active { transform: scale(.98); }
 .pair { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
 .pair .tile { padding: 13px 16px; border-radius: 22px; }
 .tile span { display: block; font-size: 13px; color: var(--muted); }
+/* หน่วยเงินเล็กกว่าตัวเลขเล็กน้อย ถ้าอยู่ในส่วนที่ย่อแล้วไม่ต้องย่อซ้ำ */
+.u { font-size: .82em; font-weight: 400; }
+.num i .u, .big i .u { font-size: 1em; }
 .tile b .unit { font-style: normal; font-size: .6em; font-weight: 400; letter-spacing: 0; color: var(--muted); }
 .tile b { display: block; font-size: 22px; font-weight: 500; letter-spacing: -.01em; font-variant-numeric: tabular-nums; }
 .tile small { display: block; font-size: 12.5px; color: var(--muted); }

@@ -1,6 +1,6 @@
 'use strict';
 
-const APP_VERSION = '2026.11.07.14';
+const APP_VERSION = '2026.11.07.15';
 const KEYS = { setup: 'fa.setup', data: 'fa.data', synced: 'fa.synced', buddy: 'fa.buddy', loanChart: 'fa.loanChart' };
 
 const $ = (s, el = document) => el.querySelector(s);
@@ -124,8 +124,12 @@ const TABS = ['today', 'cycles', 'fixed', 'loans', 'settings'];
 
 // ตัวเลขสรุปปัดเป็นบาทเต็ม ส่วนรายการใช้ยอดจริง (ไม่แสดง .00)
 const plain = (n) => (Number.isFinite(n) ? Math.round(n).toLocaleString('en-US') : '–');
-const whole = (n) => `${plain(n)} ${t('currency')}`;
-const money = (n) => `${Number.isInteger(n) ? plain(n) : baht(n)} ${t('currency')}`;
+// หน่วยเล็กกว่าตัวเลขเล็กน้อย whole และ money คืนค่าเป็น HTML ส่วน aria-label ใช้ moneyText
+const unitTag = () => `<span class="u"> ${t('currency')}</span>`;
+const amount = (n) => (Number.isInteger(n) ? plain(n) : baht(n));
+const whole = (n) => `${plain(n)}${unitTag()}`;
+const money = (n) => `${amount(n)}${unitTag()}`;
+const moneyText = (n) => `${amount(n)} ${t('currency')}`;
 const unit = () => `<i class="unit"> ${t('currency')}</i>`;
 const signed = (n) => `${n > 0 ? '+' : '−'}${money(Math.abs(n))}`;
 const bigNum = (n) => { const [w, d] = baht(Math.abs(n)).split('.'); return `${n < 0 ? '−' : ''}${w}<i>.${d} ${t('currency')}</i>`; };
@@ -176,7 +180,7 @@ function budgetRing(b) {
   const used = b.pct > 0 ? `<circle class="ring-fill ${cls}" cx="60" cy="60" r="53" pathLength="100" stroke-dasharray="${b.pct.toFixed(2)} 100"/>` : '';
   const tick = `<circle class="ring-tick" cx="60" cy="60" r="53" pathLength="100" stroke-dasharray="0.7 100" stroke-dashoffset="${(-(b.plannedPct - 0.35)).toFixed(2)}"/>`;
   const glow = b.pct > 0 ? `<circle class="ring-glow ${cls}" cx="60" cy="60" r="53" pathLength="100" stroke-dasharray="${b.pct.toFixed(2)} 100" filter="url(#ringSoft)"/>` : '';
-  return `<svg viewBox="0 0 120 120" role="img" aria-label="${esc(t('ring_aria', money(b.used), money(b.budget), money(b.planned)))}"><defs><filter id="ringSoft" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation="2.4"/></filter></defs><circle class="ring-track" cx="60" cy="60" r="53"/>${glow}${used}${tick}</svg>`;
+  return `<svg viewBox="0 0 120 120" role="img" aria-label="${esc(t('ring_aria', moneyText(b.used), moneyText(b.budget), moneyText(b.planned)))}"><defs><filter id="ringSoft" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation="2.4"/></filter></defs><circle class="ring-track" cx="60" cy="60" r="53"/>${glow}${used}${tick}</svg>`;
 }
 
 function renderToday(vm) {
@@ -203,9 +207,9 @@ function renderToday(vm) {
       </div>
       <div class="today-num">
         <span>${t('today_pair')}</span>
-        <div class="num ${plain(b.spentToday).length + plain(b.allowedToday).length > 7 ? 'long' : ''}" aria-label="${esc(t('today_aria', money(b.spentToday), money(b.allowedToday)))}"><b class="${over ? 'bad' : ''}">${plain(b.spentToday)}</b><i> / ${whole(b.allowedToday)}</i></div>
+        <div class="num ${plain(b.spentToday).length + plain(b.allowedToday).length > 7 ? 'long' : ''}" aria-label="${esc(t('today_aria', moneyText(b.spentToday), moneyText(b.allowedToday)))}"><b class="${over ? 'bad' : ''}">${plain(b.spentToday)}</b><i> / ${whole(b.allowedToday)}</i></div>
       </div>
-      <div class="status ${st.cls}">${st.icon}<span>${esc(st.text)}</span></div>
+      <div class="status ${st.cls}">${st.icon}<span>${st.text}</span></div>
       <div class="hero-foot">${t(b.left < 0 ? 'budget_over' : 'budget_left', whole(Math.abs(b.left)))}</div>
     </section>
     ${invalid}
@@ -318,7 +322,7 @@ function loanStack(stack) {
     <line class="grid" x1="0" x2="${W}" y1="${base}" y2="${base}"/>
     ${layers}
     <path class="glow" d="${surface}" filter="url(#lineSoft)"/><path class="line" d="${surface}"/><path class="spark" d="${surface}" pathLength="100"/>
-    <text class="val" x="1" y="${(y(totals[0]) - 7).toFixed(1)}">${whole(totals[0])}</text>
+    <text class="val" x="1" y="${(y(totals[0]) - 7).toFixed(1)}">${plain(totals[0])}<tspan class="u"> ${t('currency')}</tspan></text>
     <text x="1" y="${H - 8}">${esc(Calc.fmtYm(months[0]))}</text>
     <text x="${W - 1}" y="${H - 8}" text-anchor="end">${esc(Calc.fmtYm(months[n - 1]))}</text>
   </svg><ul class="legend">${legend}</ul></div>`;
