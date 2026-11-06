@@ -33,111 +33,116 @@ function treeArt(leaves) {
     ${falling}`;
 }
 
-/* ---------- ส่วนหน้าที่ใช้ร่วมกัน ---------- */
-const SKIN_INK = '#2a2230';
-function eyes(mood, lx, rx, y, ink = SKIN_INK, glint = '#fff') {
+/* ---------- สไตล์ดินปั้น 3D: ลงสีพื้นก่อน แล้วซ้อนแสงเงาตามรูปทรง ---------- */
+const INK = '#2a2230';
+let uid = 0;
+const SHADE_DEFS = (id) => `<defs><radialGradient id="${id}" cx=".36" cy=".26" r=".85">
+  <stop offset="0" stop-color="#fff" stop-opacity=".46"/><stop offset=".5" stop-color="#fff" stop-opacity="0"/>
+  <stop offset=".62" stop-color="#000" stop-opacity="0"/><stop offset="1" stop-color="#000" stop-opacity=".2"/>
+</radialGradient></defs>`;
+const solid = (tag, attrs, color, shade) => `<${tag} ${attrs} style="fill:${color}"/><${tag} ${attrs} fill="url(#${shade})"/>`;
+const gloss = (x, y, rx = 6, ry = 3.4) => `<ellipse cx="${x}" cy="${y}" rx="${rx}" ry="${ry}" transform="rotate(-18 ${x} ${y})" fill="#fff" opacity=".42"/>`;
+
+function eyes(mood, lx, rx, y) {
   if (mood === 'good') {
-    return `<path class="b-line" d="M${lx - 5} ${y + 1}Q${lx} ${y - 6} ${lx + 5} ${y + 1}M${rx - 5} ${y + 1}Q${rx} ${y - 6} ${rx + 5} ${y + 1}" style="stroke:${ink}"/>`;
+    return `<path class="b-line" d="M${lx - 4.5} ${y + 1}Q${lx} ${y - 5} ${lx + 4.5} ${y + 1}M${rx - 4.5} ${y + 1}Q${rx} ${y - 5} ${rx + 4.5} ${y + 1}" style="stroke:${INK}"/>`;
   }
-  const r = mood === 'bad' ? 5.4 : 4.2;
-  const pupil = (x) => `<ellipse cx="${x}" cy="${y}" rx="${r}" ry="${r + 0.8}" style="fill:${ink}"/><circle cx="${x + 1.6}" cy="${y - 1.8}" r="${mood === 'bad' ? 2 : 1.3}" style="fill:${glint}"/>${mood === 'bad' ? `<circle cx="${x - 1.6}" cy="${y + 2}" r="1" style="fill:${glint}"/>` : ''}`;
+  const pupil = (x) => `<circle cx="${x}" cy="${y}" r="3.5" fill="${INK}"/><circle cx="${x + 1.1}" cy="${y - 1.2}" r="1.1" fill="#fff"/>`;
   return `<g class="b-eyes" style="transform-origin:50px ${y}px">${pupil(lx)}${pupil(rx)}</g>`;
 }
-const browsSad = (lx, rx, y, ink = SKIN_INK) => `<path class="b-line thin" d="M${lx - 5} ${y}L${lx + 4} ${y - 4}M${rx + 5} ${y}L${rx - 4} ${y - 4}" style="stroke:${ink}"/>`;
-const tear = (x, y) => `<path class="b-tear" d="M${x} ${y}C${x + 3.4} ${y + 5} ${x + 2.6} ${y + 8} ${x} ${y + 8}C${x - 2.6} ${y + 8} ${x - 3.4} ${y + 5} ${x} ${y}Z" fill="#6fb6f2"/>`;
+const browsSad = (lx, rx, y) => `<path class="b-line thin" d="M${lx - 5} ${y}L${lx + 3} ${y - 3}M${rx + 5} ${y}L${rx - 3} ${y - 3}" style="stroke:${INK}"/>`;
+const mouthAt = (mood, x, y) => {
+  const d = { good: `M${x - 5} ${y}Q${x} ${y + 6} ${x + 5} ${y}`, ok: `M${x - 4} ${y + 1}Q${x} ${y + 3} ${x + 4} ${y + 1}`, bad: `M${x - 4.5} ${y + 3}Q${x} ${y - 2} ${x + 4.5} ${y + 3}` }[mood];
+  return `<path class="b-line thin" d="${d}" style="stroke:${INK}"/>`;
+};
+const cheeks = (a, b, y) => `<ellipse cx="${a}" cy="${y}" rx="4" ry="2.6" fill="#ff9aa6" opacity=".6"/><ellipse cx="${b}" cy="${y}" rx="4" ry="2.6" fill="#ff9aa6" opacity=".6"/>`;
+const tear = (x, y) => `<path class="b-tear" d="M${x} ${y}C${x + 3} ${y + 5} ${x + 2.4} ${y + 8} ${x} ${y + 8}C${x - 2.4} ${y + 8} ${x - 3} ${y + 5} ${x} ${y}Z" fill="#6fb6f2"/>`;
 const HEART = 'M0 2C-1-2-6-2-6 1.5C-6 5-2 7 0 9C2 7 6 5 6 1.5C6-2 1-2 0 2Z';
 const hearts = (a, b) => `<g transform="translate(${a[0]} ${a[1]})"><path class="b-heart" d="${HEART}" fill="#ff7a9c"/></g><g transform="translate(${b[0]} ${b[1]}) scale(.75)"><path class="b-heart h2" d="${HEART}" fill="#ff7a9c"/></g>`;
 
-/* ---------- คนกับอากาศ ---------- */
+/* ---------- คนกับอากาศ: ตัวกลมก้อนเดียว ---------- */
 const CLOUD = (x, y, fill, cls = '') => `<path class="${cls}" d="M${x} ${y}a7 7 0 0 1 7-7a9 9 0 0 1 16-3a7.5 7.5 0 0 1 11 6a5 5 0 0 1 1 10H${x + 3}a6 6 0 0 1-3-6z" fill="${fill}"/>`;
 const SUN = (x, y) => {
   const rays = Array.from({ length: 8 }, (_, i) => `<path d="M${x} ${y - 13}V${y - 17.5}" transform="rotate(${i * 45} ${x} ${y})"/>`).join('');
   return `<g class="b-rays" style="transform-origin:${x}px ${y}px" stroke="#f6b73c" stroke-width="2.6" stroke-linecap="round">${rays}</g><circle cx="${x}" cy="${y}" r="10" fill="#f9c83f"/>`;
 };
 function personArt(mood) {
+  const id = `shade${uid += 1}`;
   const sky = {
     good: SUN(82, 20),
     ok: `${SUN(80, 18)}${CLOUD(52, 22, 'color-mix(in srgb, #fff 88%, var(--accent))', 'b-drift')}`,
     bad: `${CLOUD(26, 11, '#8c94a6')}${[[10, 34], [18, 54], [90, 38], [84, 58], [32, 16], [50, 15], [70, 16]].map(([x, y], i) => `<path class="b-rain r${i % 3}" d="M${x} ${y}l-1.6 6" stroke="#6fa8e6" stroke-width="2" stroke-linecap="round"/>`).join('')}`,
   }[mood];
-  const umbrella = mood === 'bad' ? `<g transform="rotate(-14 67 78)">
-      <path d="M67 78V30" stroke="#5d5560" stroke-width="2.4" stroke-linecap="round"/>
-      <path d="M37 33Q67 5 97 33Q89.5 28 82 33Q74.5 28 67 33Q59.5 28 52 33Q44.5 28 37 33Z" style="fill:var(--umbrella)"/>
+  const umbrella = mood === 'bad' ? `<g transform="rotate(-14 66 78)">
+      <path d="M66 78V32" stroke="#5d5560" stroke-width="2.4" stroke-linecap="round"/>
+      ${solid('path', 'd="M36 34Q66 8 96 34Q88.5 29 81 34Q73.5 29 66 34Q58.5 29 51 34Q43.5 29 36 34Z"', 'var(--umbrella)', id)}
     </g>` : '';
-  const arms = {
-    good: '<path class="b-arm-l b-limb" d="M40 71Q28 66 25 54"/><path class="b-arm-r b-limb" d="M60 71Q72 66 75 54"/>',
-    ok: '<path class="b-limb" d="M40 71Q32 76 33 85"/><path class="b-limb" d="M60 71Q68 76 67 85"/>',
-    bad: '<path class="b-limb" d="M40 71Q33 77 35 86"/><path class="b-limb" d="M60 71Q66 74 67 69"/>',
-  }[mood];
-  const mouth = { good: 'M44 59Q50 67 56 59', ok: 'M45 60Q50 63 55 60', bad: 'M45 63Q50 58 55 63' }[mood];
-  return `${sky}<ellipse class="b-ground" cx="50" cy="96" rx="18" ry="2.4"/>
+  const body = 'x="30" y="38" width="40" height="52" rx="20"';
+  return `${SHADE_DEFS(id)}${sky}<ellipse class="b-ground" cx="50" cy="96" rx="20" ry="2.6"/>
     <g class="b-all ${mood === 'bad' ? 'droop' : ''}">
-      <path d="M44 84V93M56 84V93" style="stroke:var(--pants)" stroke-width="5" stroke-linecap="round"/>
-      <rect x="38" y="66" width="24" height="22" rx="10" style="fill:var(--shirt)"/>
-      ${arms}
-      <circle cx="50" cy="53" r="14" fill="#f6cfa8"/>
-      <path d="M36 52C35 37 65 37 64 52C60 46 54 44 48 45C44 46 39 47 36 52Z" fill="#4a3528"/>
-      ${mood === 'good' ? '<ellipse cx="40" cy="58" rx="3" ry="2" fill="#ff9d9d" opacity=".7"/><ellipse cx="60" cy="58" rx="3" ry="2" fill="#ff9d9d" opacity=".7"/>' : ''}
-      ${eyes(mood === 'bad' ? 'ok' : mood, 44, 56, 53)}
-      ${mood === 'bad' ? browsSad(44, 56, 48) : ''}
-      <path class="b-line thin" d="${mouth}" style="stroke:${SKIN_INK}"/>
+      <path d="M41 88V94M59 88V94" style="stroke:var(--pants)" stroke-width="5.5" stroke-linecap="round"/>
+      <rect ${body} fill="#f6cfa8"/>
+      <path d="M30 60C30 44 38 38 50 38C62 38 70 44 70 60C64 50 56 48 48 50C40 51 34 54 30 60Z" fill="#4a3528"/>
+      <path d="M30 74H70V70V78C70 84 62 90 50 90C38 90 30 84 30 78Z" style="fill:var(--shirt)"/>
+      <rect ${body} fill="url(#${id})"/>
+      ${gloss(39, 44, 5, 2.6)}
+      ${mood === 'good' ? cheeks(36, 64, 66) : ''}
+      ${eyes(mood, 41, 59, 62)}
+      ${mood === 'bad' ? browsSad(41, 59, 56) : ''}
+      ${mouthAt(mood, 50, 67)}
     </g>
     ${umbrella}`;
 }
 
 /* ---------- แมว ---------- */
-let clipId = 0;
 function catArt(mood) {
-  const fur = 'var(--cat-fur)', fur2 = 'var(--cat-fur2)', ink = 'var(--cat-ink)', glint = 'var(--cat-glint)';
-  const ear = mood === 'bad' ? ['rotate(-22 34 34)', 'rotate(22 66 34)'] : ['', ''];
-  const mouth = { good: 'M43 61Q47 69 50 62Q53 69 57 61', ok: 'M45 62Q48 65 50 62Q52 65 55 62', bad: 'M44 67Q50 61 56 67' }[mood];
-  clipId += 1;
-  return `${mood === 'good' ? hearts([84, 26], [14, 30]) : ''}<ellipse class="b-ground" cx="50" cy="97" rx="24" ry="2.4"/>
-    <path class="b-tail" d="M70 86Q90 84 85 64" fill="none" style="stroke:${fur2}" stroke-width="7" stroke-linecap="round"/>
+  const id = `shade${uid += 1}`, clip = `clip${uid}`;
+  const fur = 'var(--cat-fur)';
+  const ear = 'd="M26 38L27 13L46 28Z"', ear2 = 'd="M74 38L73 13L54 28Z"';
+  const tilt = mood === 'bad' ? ['rotate(-12 32 34)', 'rotate(12 68 34)'] : ['', ''];
+  const head = 'cx="50" cy="50" rx="28" ry="24"';
+  return `${SHADE_DEFS(id)}${mood === 'good' ? hearts([84, 24], [13, 28]) : ''}<ellipse class="b-ground" cx="50" cy="97" rx="24" ry="2.6"/>
+    <path class="b-tail" d="M66 84Q88 82 83 62" fill="none" style="stroke:var(--cat-fur2)" stroke-width="7" stroke-linecap="round"/>
     <g class="b-all ${mood === 'bad' ? 'droop' : ''}">
-      <ellipse cx="50" cy="83" rx="23" ry="14" style="fill:${fur}"/>
-      <ellipse cx="50" cy="86" rx="11" ry="9" style="fill:var(--cat-belly)"/>
-      <g transform="${ear[0]}"><path d="M25 40L27 12L47 29Z" style="fill:${fur}"/><path d="M25 40L27 12L47 29Z" style="fill:var(--cat-patchA)"/><path d="M30 34L31 20L41 29Z" style="fill:var(--cat-inner)"/></g>
-      <g transform="${ear[1]}"><path d="M75 40L73 12L53 29Z" style="fill:${fur}"/><path d="M70 34L69 20L59 29Z" style="fill:var(--cat-inner)"/></g>
-      <ellipse cx="50" cy="52" rx="29" ry="24" style="fill:${fur}"/>
-      <clipPath id="catHead${clipId}"><ellipse cx="50" cy="52" rx="29" ry="24"/></clipPath>
-      <g clip-path="url(#catHead${clipId})"><ellipse cx="29" cy="39" rx="17" ry="15" style="fill:var(--cat-patchA)"/><ellipse cx="74" cy="42" rx="15" ry="13" style="fill:var(--cat-patchB)"/></g>
-      <path class="b-line thin" d="M50 30V37M42 31L43.5 37M58 31L56.5 37" style="stroke:${fur2}"/>
-      ${mood === 'good' ? '<ellipse cx="32" cy="60" rx="4.5" ry="3" fill="#ff8f8f" opacity=".6"/><ellipse cx="68" cy="60" rx="4.5" ry="3" fill="#ff8f8f" opacity=".6"/>' : ''}
-      ${eyes(mood, 38, 62, 51, ink, glint)}
-      ${mood === 'bad' ? browsSad(38, 62, 42, ink) : ''}
-      <path d="M47 57H53L50 60.4Z" fill="#e8747c"/>
-      <path class="b-line thin" d="${mouth}" style="stroke:${ink}"/>
-      <path class="b-whisk" d="M26 56L13 53M26 61L13 63M74 56L87 53M74 61L87 63" style="stroke:${ink}" stroke-width="1.2" stroke-linecap="round" opacity=".55"/>
-      <path d="M35 73Q50 80 65 73" fill="none" class="b-collar"/>
-      ${mood === 'bad' ? tear(32, 57) : ''}
+      ${solid('ellipse', 'cx="50" cy="82" rx="21" ry="14"', fur, id)}
+      <g transform="${tilt[0]}"><path ${ear} style="fill:${fur}"/><path ${ear} style="fill:var(--cat-patchA)"/><path d="M31 33L31.5 21L40 28.5Z" style="fill:var(--cat-inner)"/><path ${ear} fill="url(#${id})"/></g>
+      <g transform="${tilt[1]}"><path ${ear2} style="fill:${fur}"/><path d="M69 33L68.5 21L60 28.5Z" style="fill:var(--cat-inner)"/><path ${ear2} fill="url(#${id})"/></g>
+      <ellipse ${head} style="fill:${fur}"/>
+      <clipPath id="${clip}"><ellipse ${head}/></clipPath>
+      <g clip-path="url(#${clip})"><ellipse cx="30" cy="36" rx="17" ry="14" style="fill:var(--cat-patchA)"/><ellipse cx="74" cy="39" rx="14" ry="12" style="fill:var(--cat-patchB)"/></g>
+      <ellipse ${head} fill="url(#${id})"/>
+      ${gloss(39, 36)}
+      ${mood === 'good' ? cheeks(31, 69, 58) : ''}
+      ${eyes(mood, 38, 62, 50)}
+      ${mood === 'bad' ? browsSad(38, 62, 43) : ''}
+      <path d="M47.5 55.5H52.5L50 58.5Z" fill="#e8747c"/>
+      ${mouthAt(mood, 50, 60)}
+      ${mood === 'bad' ? tear(31, 55) : ''}
     </g>`;
 }
 
 /* ---------- หมา ---------- */
 function dogArt(mood) {
-  const fur = 'var(--dog-fur)', ear = 'var(--dog-fur2)', ink = 'var(--dog-ink)', glint = 'var(--dog-glint)';
-  const earL = mood === 'bad' ? 'M28 34Q12 42 15 70Q24 72 29 56Z' : 'M28 32Q10 30 12 56Q22 62 28 50Z';
-  const earR = mood === 'bad' ? 'M72 34Q88 42 85 70Q76 72 71 56Z' : 'M72 32Q90 30 88 56Q78 62 72 50Z';
-  const mouth = { good: 'M42 62Q50 72 58 62', ok: 'M44 64Q50 67 56 64', bad: 'M44 68Q50 63 56 68' }[mood];
-  return `${mood === 'good' ? hearts([88, 24], [12, 22]) : ''}<ellipse class="b-ground" cx="50" cy="97" rx="24" ry="2.4"/>
-    <path class="b-tail" d="M70 86Q86 84 84 68" fill="none" style="stroke:${ear}" stroke-width="7" stroke-linecap="round"/>
+  const id = `shade${uid += 1}`;
+  const fur = 'var(--dog-fur)', ear = 'var(--dog-fur2)';
+  const tilt = mood === 'bad' ? ['rotate(-14 26 34)', 'rotate(14 74 34)'] : ['', ''];
+  return `${SHADE_DEFS(id)}${mood === 'good' ? hearts([88, 22], [12, 20]) : ''}<ellipse class="b-ground" cx="50" cy="97" rx="24" ry="2.6"/>
+    <path class="b-tail" d="M68 84Q86 82 83 66" fill="none" style="stroke:${ear}" stroke-width="7" stroke-linecap="round"/>
     <g class="b-all ${mood === 'bad' ? 'droop' : ''}">
-      <ellipse cx="50" cy="83" rx="22" ry="14" style="fill:${fur}"/>
-      <ellipse cx="50" cy="52" rx="27" ry="25" style="fill:${fur}"/>
-      <path d="M57 34C66 34 73 42 72 54C66 56 58 52 57 44Z" style="fill:var(--dog-patchA)"/>
-      <path d="M28 40C22 46 25 58 34 58C42 56 42 44 36 38Z" style="fill:var(--dog-patchB)"/>
-      <path d="${earL}" style="fill:${ear}"/><path d="${earR}" style="fill:${ear}"/>
-      <ellipse cx="50" cy="62" rx="14" ry="10.5" style="fill:var(--dog-belly)"/>
-      ${mood === 'good' ? '<ellipse cx="33" cy="60" rx="4.5" ry="3" fill="#ff9d9d" opacity=".6"/><ellipse cx="67" cy="60" rx="4.5" ry="3" fill="#ff9d9d" opacity=".6"/>' : ''}
-      ${eyes(mood, 39, 62, 49, ink, glint)}
-      ${mood === 'bad' ? browsSad(39, 62, 40, ink) : ''}
-      <ellipse cx="50" cy="57" rx="4.6" ry="3.4" style="fill:${ink}"/>
-      ${mood === 'good' ? '<path class="b-tongue" d="M45.5 65H54.5V70.5A4.5 4.5 0 0 1 45.5 70.5Z" fill="#ff8a9d"/>' : ''}
-      <path class="b-line thin" d="${mouth}" style="stroke:${ink}"/>
-      <path d="M36 74Q50 81 64 74" fill="none" class="b-collar"/>
-      <circle cx="50" cy="80" r="3" fill="#f6c445"/>
-      ${mood === 'bad' ? tear(33, 54) : ''}
+      ${solid('ellipse', 'cx="50" cy="82" rx="21" ry="14"', fur, id)}
+      <ellipse cx="50" cy="50" rx="27" ry="25" style="fill:${fur}"/>
+      <path d="M57 32C66 32 73 40 72 52C66 54 58 50 57 42Z" style="fill:var(--dog-patchA)"/>
+      <ellipse cx="50" cy="50" rx="27" ry="25" fill="url(#${id})"/>
+      ${gloss(40, 35)}
+      <g transform="${tilt[0]}">${solid('path', 'd="M28 30Q10 30 12 54Q22 60 28 48Z"', ear, id)}</g>
+      <g transform="${tilt[1]}">${solid('path', 'd="M72 30Q90 30 88 54Q78 60 72 48Z"', ear, id)}</g>
+      ${mood === 'good' ? cheeks(32, 68, 58) : ''}
+      ${eyes(mood, 39, 61, 48)}
+      ${mood === 'bad' ? browsSad(39, 61, 41) : ''}
+      <ellipse cx="50" cy="56" rx="4" ry="3" fill="${INK}"/>
+      ${mood === 'good' ? '<path class="b-tongue" d="M46 64.5H54V68.5A4 4 0 0 1 46 68.5Z" fill="#ff8a9d"/>' : ''}
+      ${mouthAt(mood, 50, 61)}
+      ${mood === 'bad' ? tear(32, 53) : ''}
     </g>`;
 }
 

@@ -1,6 +1,6 @@
 'use strict';
 
-const APP_VERSION = '2026.11.07.7';
+const APP_VERSION = '2026.11.07.8';
 const KEYS = { setup: 'fa.setup', data: 'fa.data', synced: 'fa.synced', buddy: 'fa.buddy' };
 
 const $ = (s, el = document) => el.querySelector(s);

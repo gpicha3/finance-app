@@ -45,12 +45,11 @@ const PALETTES = {
   },
 };
 
-// สีตัวละคร: โทนเย็นเป็นขาวหรือสามสี โทนร้อนเป็นส้มอ่อน ธีมขาวดำใช้สีตรงข้าม
+// สีตัวละคร: โทนเย็นเป็นขาวหรือสามสี โทนร้อนเป็นส้มอ่อน ธีมขาวดำใช้สีขาว
 const FUR = {
-  white: { fur: '#f6f7fa', fur2: '#d9dee7', patchA: 'transparent', patchB: 'transparent', belly: '#ffffff', inner: '#ffc9cf', ink: '#2a2230', glint: '#ffffff' },
-  calico: { fur: '#f8f6f1', fur2: '#b9794a', patchA: '#b9794a', patchB: '#8f96a3', belly: '#ffffff', inner: '#ffc9cf', ink: '#2a2230', glint: '#ffffff' },
-  orange: { fur: '#f9c48b', fur2: '#eda764', patchA: 'transparent', patchB: 'transparent', belly: '#fff1e0', inner: '#ffb9a8', ink: '#2a2230', glint: '#ffffff' },
-  black: { fur: '#2c2c31', fur2: '#17171a', patchA: 'transparent', patchB: 'transparent', belly: '#44444b', inner: '#6b6b73', ink: '#f4f4f5', glint: '#17171a' },
+  white: { fur: '#f6f7fa', fur2: '#d3d8e2', patchA: 'transparent', patchB: 'transparent', inner: '#ffc9cf' },
+  calico: { fur: '#f8f6f1', fur2: '#b9794a', patchA: '#b9794a', patchB: '#8f96a3', inner: '#ffc9cf' },
+  orange: { fur: '#f9c48b', fur2: '#eda764', patchA: 'transparent', patchB: 'transparent', inner: '#ffb9a8' },
 };
 const CHARACTERS = {
   sky: { cat: 'calico', dog: 'white', shirt: '#5aa5e8', umbrella: '#2f6fd0' },
@@ -59,14 +58,14 @@ const CHARACTERS = {
   peach: { cat: 'orange', dog: 'orange', shirt: '#f2936a', umbrella: '#d9582a' },
   pink: { cat: 'orange', dog: 'orange', shirt: '#f27fa8', umbrella: '#d23d7c' },
   gold: { cat: 'orange', dog: 'orange', shirt: '#e6ae3a', umbrella: '#b67d10' },
-  white: { cat: 'black', dog: 'black', shirt: '#3a3a40', umbrella: '#18181b', leaf: '#a6d98c', collar: '#d9d9de' },
-  black: { cat: 'white', dog: 'white', shirt: '#d7d7dc', umbrella: '#f4f4f5', leaf: '#a6d98c', collar: '#6b6b73' },
+  white: { cat: 'white', dog: 'white', shirt: '#3a3a40', umbrella: '#18181b', leaf: '#a6d98c' },
+  black: { cat: 'white', dog: 'white', shirt: '#d7d7dc', umbrella: '#f4f4f5', leaf: '#a6d98c' },
 };
 
 function characterVars(id, p) {
   const c = CHARACTERS[id] || CHARACTERS.sky;
   const vars = {
-    '--shirt': c.shirt, '--umbrella': c.umbrella, '--leaf': c.leaf || p.accent, '--collar': c.collar || p.accent,
+    '--shirt': c.shirt, '--umbrella': c.umbrella, '--leaf': c.leaf || p.accent,
   };
   [['cat', c.cat], ['dog', c.dog]].forEach(([pet, name]) => {
     Object.entries(FUR[name]).forEach(([k, v]) => { vars[`--${pet}-${k}`] = v; });

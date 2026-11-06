@@ -184,8 +184,6 @@ button.panel:active { transform: scale(.98); }
 }
 /* ตัวละครอื่น */
 .buddy.poke svg { transform-origin: 50% 96%; animation: b-poke .65s var(--ease); }
-.b-collar { stroke: var(--collar); stroke-width: 4; stroke-linecap: round; }
-.b-limb { fill: none; stroke: #f6cfa8; stroke-width: 5.5; stroke-linecap: round; }
 .b-line { fill: none; stroke-width: 2.6; stroke-linecap: round; stroke-linejoin: round; }
 .b-line.thin { stroke-width: 2; }
 .b-all { transform-origin: 50px 94px; animation: b-bob 2.6s ease-in-out infinite; }
@@ -195,9 +193,7 @@ button.panel:active { transform: scale(.98); }
 .b-tail { transform-origin: 70px 86px; animation: b-wag 1.5s ease-in-out infinite alternate; }
 .good .b-tail { animation-duration: .42s; }
 .bad .b-tail { animation-duration: 3.2s; }
-.b-tongue { transform-origin: 50px 65px; animation: b-pant .5s ease-in-out infinite alternate; }
-.b-arm-l { transform-origin: 40px 71px; animation: b-wave-l .8s ease-in-out infinite alternate; }
-.b-arm-r { transform-origin: 60px 71px; animation: b-wave-r .8s ease-in-out infinite alternate; }
+.b-tongue { transform-origin: 50px 64.5px; animation: b-pant .5s ease-in-out infinite alternate; }
 .b-rays { animation: b-spin 16s linear infinite; }
 .b-drift { animation: b-drift 6s ease-in-out infinite alternate; }
 .b-rain { animation: b-rain 1.05s linear infinite; }
@@ -212,8 +208,6 @@ button.panel:active { transform: scale(.98); }
 @keyframes b-blink { 0%, 93%, 100% { transform: none; } 96% { transform: scaleY(.1); } }
 @keyframes b-wag { from { transform: rotate(-12deg); } to { transform: rotate(14deg); } }
 @keyframes b-pant { from { transform: scaleY(.82); } to { transform: scaleY(1.08); } }
-@keyframes b-wave-l { from { transform: rotate(-8deg); } to { transform: rotate(14deg); } }
-@keyframes b-wave-r { from { transform: rotate(8deg); } to { transform: rotate(-14deg); } }
 @keyframes b-spin { to { transform: rotate(360deg); } }
 @keyframes b-drift { from { transform: translateX(-3px); } to { transform: translateX(4px); } }
 @keyframes b-rain { 0% { transform: translate(0, 0); opacity: 0; } 20% { opacity: .9; } 80% { opacity: .75; } 100% { transform: translate(-2.6px, 12px); opacity: 0; } }
