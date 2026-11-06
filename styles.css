@@ -297,15 +297,16 @@ details[open] > :not(summary) { animation: open-in .32s var(--ease); }
 /* ---------- การผ่อน ---------- */
 .chart { padding: 14px 16px 8px; }
 .chart svg { display: block; width: 100%; height: auto; stroke: none; }
-.w-top { stop-color: color-mix(in srgb, var(--accent) 70%, #fff); }
-.w-mid { stop-color: var(--accent); }
-.w-low { stop-color: color-mix(in srgb, var(--accent) 82%, #000); }
-.chart .col { fill: url(#waterGrad); }
-.chart .col.later { opacity: .55; }
-.chart .col-sheen { fill: #fff; opacity: .4; }
+/* เส้นเรืองแสงเหนือผิวน้ำไล่จาง จุดเป็นลูกแก้วขอบสีหลัก */
+.w-top { stop-color: var(--accent); stop-opacity: .34; }
+.w-low { stop-color: var(--accent); stop-opacity: .02; }
+.chart .area { fill: url(#waterGrad); }
+.chart .glow { fill: none; stroke: var(--accent); stroke-width: 7; opacity: .16; stroke-linejoin: round; stroke-linecap: round; }
+.chart .line { fill: none; stroke: var(--accent); stroke-width: 2.5; stroke-linejoin: round; stroke-linecap: round; }
+.chart .dot { fill: var(--panel); stroke: var(--accent); stroke-width: 2.5; }
+.chart .dot.now { fill: var(--accent); stroke: var(--panel); }
 .chart text { fill: var(--muted); font-size: 11px; font-variant-numeric: tabular-nums; stroke: none; }
 .chart text.val { fill: var(--text); font-weight: 500; }
-.chart-end { font-size: 13px; color: var(--muted); margin-top: -4px; }
 .tl { list-style: none; margin: 0; padding: 0; }
 .tl li { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 1px 12px; padding: 10px 18px; border-top: 1px solid var(--hair); font-variant-numeric: tabular-nums; }
 .tl li:first-child { border-top: 0; }

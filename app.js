@@ -1,6 +1,6 @@
 'use strict';
 
-const APP_VERSION = '2026.11.07.3';
+const APP_VERSION = '2026.11.07.4';
 const KEYS = { setup: 'fa.setup', data: 'fa.data', synced: 'fa.synced' };
 
 const $ = (s, el = document) => el.querySelector(s);
@@ -291,37 +291,40 @@ function renderFixed(vm) {
 }
 
 /* ---------- การผ่อน ---------- */
-// กราฟแท่งน้ำ: แต่ละแท่งคือช่วงเวลาที่ยอดต่อเดือนคงที่ กว้างตามระยะเวลา แท่งแรกคือตอนนี้
-// แท่งสั้นมากจะกว้างขั้นต่ำเพื่อให้อ่านป้ายได้ ตัวเลขละเอียดอยู่ในรายการเดือนที่ยอดเปลี่ยน
+// กราฟเส้นขั้นบันได: แกนเวลาตามจริง ติดป้ายเฉพาะจุดที่ยอดเปลี่ยน รายการตัวเลขอยู่ในเดือนที่ยอดเปลี่ยน
 function stepChart(steps) {
   if (steps.length < 2) return '';
-  const W = 340, H = 156, top = 24, base = 128, gap = 4;
+  const W = 340, H = 156, top = 24, bottom = 126, left = 6, right = 334, R = 8;
   const idx = (ym) => { const [y, m] = ym.split('-').map(Number); return y * 12 + m; };
-  const last = steps[steps.length - 1];
-  const cols = (last.amount === 0 ? steps.slice(0, -1) : steps).map((s, i) => ({ ...s, span: steps[i + 1] ? idx(steps[i + 1].ym) - idx(s.ym) : 1 }));
-  const total = cols.reduce((a, c) => a + c.span, 0);
-  const raw = cols.map((c) => Math.max(0.16, c.span / total));
-  const rawSum = raw.reduce((a, b) => a + b, 0);
-  const room = W - gap * (cols.length - 1);
-  const max = Math.max(...cols.map((c) => c.amount), 1);
-  let x = 0;
-  const bars = cols.map((c, i) => {
-    const w = (raw[i] / rawSum) * room;
-    const h = Math.max(6, (c.amount / max) * (base - top));
-    const y = base - h;
-    const r = Math.min(10, h, w / 2);
-    const shape = `<path class="col ${i ? 'later' : ''}" d="M${x.toFixed(1)} ${base}V${(y + r).toFixed(1)}Q${x.toFixed(1)} ${y.toFixed(1)} ${(x + r).toFixed(1)} ${y.toFixed(1)}H${(x + w - r).toFixed(1)}Q${(x + w).toFixed(1)} ${y.toFixed(1)} ${(x + w).toFixed(1)} ${(y + r).toFixed(1)}V${base}Z"/>`;
-    const sheen = h > 12 ? `<rect class="col-sheen" x="${(x + 7).toFixed(1)}" y="${(y + 4).toFixed(1)}" width="${Math.max(0, w - 14).toFixed(1)}" height="3" rx="1.5"/>` : '';
-    const label = `<text class="val" x="${(x + w / 2).toFixed(1)}" y="${(y - 7).toFixed(1)}" text-anchor="middle">${Math.round(c.amount).toLocaleString('en-US')}</text>`;
-    const month = w >= 50 ? `<text x="${(x + 2).toFixed(1)}" y="${H - 11}">${esc(Calc.fmtYm(c.ym))}</text>` : '';
-    x += w + gap;
-    return shape + sheen + label + month;
+  const t0 = idx(steps[0].ym), span = Math.max(1, idx(steps[steps.length - 1].ym) - t0);
+  const max = Math.max(...steps.map((s) => s.amount), 1);
+  const x = (s) => left + ((idx(s.ym) - t0) / span) * (right - left);
+  const y = (a) => bottom - (a / max) * (bottom - top);
+  // มุมบนของแต่ละขั้นโค้ง ส่วนมุมล่างเป็นตำแหน่งจุดพอดี
+  let d = `M${x(steps[0]).toFixed(1)} ${y(steps[0].amount).toFixed(1)}`;
+  steps.slice(1).forEach((s, i) => {
+    const px = x(s), from = y(steps[i].amount), to = y(s.amount);
+    const r = Math.min(R, Math.abs(to - from) / 2, (px - x(steps[i])) / 2);
+    const sign = to >= from ? 1 : -1;
+    d += `H${(px - r).toFixed(1)}Q${px.toFixed(1)} ${from.toFixed(1)} ${px.toFixed(1)} ${(from + sign * r).toFixed(1)}V${to.toFixed(1)}`;
+  });
+  const area = `${d}V${bottom}H${left}Z`;
+  let lastX = -999;
+  const labels = steps.map((s, i) => {
+    const px = x(s);
+    const last = i === steps.length - 1;
+    const anchor = last ? 'end' : 'start';
+    const showDate = last || px - lastX > 62;
+    if (showDate) lastX = px;
+    const vy = Math.max(12, y(s.amount) - 9);
+    return `<text class="val" x="${(last ? right - 10 : px + 2).toFixed(1)}" y="${vy.toFixed(1)}" text-anchor="${anchor}">${Math.round(s.amount).toLocaleString('en-US')}</text>`
+      + (showDate ? `<text x="${(last ? right : px).toFixed(1)}" y="${H - 8}" text-anchor="${anchor}">${esc(Calc.fmtYm(s.ym))}</text>` : '');
   }).join('');
-  const end = last.amount === 0 ? `<div class="chart-end">ผ่อนหมดทุกรายการ ${esc(Calc.fmtYm(last.ym))}</div>` : '';
+  const dots = steps.map((s, i) => `<circle class="dot ${i ? '' : 'now'}" cx="${x(s).toFixed(1)}" cy="${y(s.amount).toFixed(1)}" r="${i ? 4 : 5.5}"/>`).join('');
   return `<div class="chart"><svg viewBox="0 0 ${W} ${H}" role="img" aria-label="ยอดผ่อนต่อเดือนตามเวลา รายละเอียดอยู่ในรายการเดือนที่ยอดเปลี่ยน">
-    <defs><linearGradient id="waterGrad" x1="0" y1="0" x2="0" y2="1"><stop class="w-top" offset="0"/><stop class="w-mid" offset=".6"/><stop class="w-low" offset="1"/></linearGradient></defs>
-    ${bars}
-  </svg>${end}</div>`;
+    <defs><linearGradient id="waterGrad" x1="0" y1="0" x2="0" y2="1"><stop class="w-top" offset="0"/><stop class="w-low" offset="1"/></linearGradient></defs>
+    <path class="area" d="${area}"/><path class="glow" d="${d}"/><path class="line" d="${d}"/>${dots}${labels}
+  </svg></div>`;
 }
 
 const fact = (k, v) => `<div><span>${esc(k)}</span><b>${v}</b></div>`;
@@ -343,7 +346,6 @@ function renderLoans(vm) {
   const { items, now: monthly, timeline, pending } = vm.loans;
   if (!items.length) { el.innerHTML = '<p class="empty-state">ไม่มีข้อมูลในแท็บ Installments</p>'; return; }
   const active = items.filter((i) => !i.done);
-  const done = items.filter((i) => i.done);
   const tl = timeline.map((e) => {
     const what = [...e.started.map((n) => `เริ่ม ${n}`), ...e.ended.map((n) => `${n} หมด`)].join(' · ');
     return `<li>
@@ -363,11 +365,7 @@ function renderLoans(vm) {
     <section class="panel list">
       ${stepChart(Calc.installmentSteps(vm.loans, vm.now))}
       ${tl ? `<details><summary><span class="row-name">เดือนที่ยอดเปลี่ยน</span>${CHEV_D}</summary><ul class="tl">${tl}</ul></details>` : '<p class="empty">ไม่มีการเปลี่ยนแปลงข้างหน้า</p>'}
-    </section>
-    ${done.length ? `<section class="panel list"><details>
-      <summary><span class="row-name">ผ่อนหมดแล้ว</span><b>${done.length}</b>${CHEV_D}</summary>
-      <ul class="items">${done.map((i) => `<li><span class="item-name">${esc(i.name)}</span><span class="item-amt">${money(i.fullAmount)}</span><span class="item-sub">ครบ ${i.totalMonths} งวด · หมด ${esc(Calc.fmtYm(i.endMonth))}</span></li>`).join('')}</ul>
-    </details></section>` : ''}`;
+    </section>`;
 }
 
 /* ---------- สลับหน้า ---------- */
