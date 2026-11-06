@@ -65,6 +65,12 @@ iPhone (PWA)  ⇄  Google Apps Script (Web App + TOKEN)  ⇄  Google Sheet "Fina
 อัปเดต: วางโค้ดทับ → Save → Deploy → Manage deployments → ✏️ → New version → Deploy
 (ห้ามกด New deployment เพราะ URL จะเปลี่ยน)
 
+สถานะ: ติดตั้งและ Deploy ในชีตจริงแล้วเมื่อ 6 พ.ย. 2026
+
+ถ้าคัดลอกโค้ดด้วย `pbcopy` จาก shell ต้องตั้ง `LC_ALL=en_US.UTF-8` ก่อน ไม่อย่างนั้นภาษาไทยที่วางในหน้าเว็บจะเพี้ยน
+ถึงแม้ `pbpaste` จะอ่านกลับมาได้เท่าเดิม ให้ดูจากหน้า editor ว่าภาษาไทยอ่านออกก่อนกด Run ทุกครั้ง
+เพราะข้อมูลตั้งต้นของ Installments จะถูกเขียนลงชีตตอนรันครั้งแรก
+
 ## Deploy แอป
 
 - ยังไม่ได้ทำ ถ้าใช้ GitHub Pages แบบ fuel-logger: repo ใต้บัญชี gpicha3, push ผ่าน SSH alias `github.com-personal`, ใช้ `gh` ผ่าน `GH_TOKEN=$(gh auth token --user gpicha3)` (อย่าใช้ `gh auth switch`)
