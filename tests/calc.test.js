@@ -110,6 +110,31 @@ test('แผนการใช้งบ: ขีดแผนนับรวมว
   assert.equal(C.budgetSummary({ expense: 0 }, D('2026-11-26')).planned, 220.69);
 });
 
+test('ยอดวันนี้: นับเฉพาะรายจ่ายของวันนี้ และยอดที่ใช้ได้ไม่ลดลงระหว่างวัน', () => {
+  const today = D('2026-11-07');
+  const label = '26 ต.ค.–24 พ.ย.';
+  const before = [row('2026-11-06', label, 1000)];
+  const c = (rows) => C.buildCycles(rows, today).find((x) => x.key === '2026-10');
+  const morning = C.budgetSummary(c(before), today);
+  assert.equal(morning.spentToday, 0);
+  assert.equal(morning.days, 18);
+  assert.equal(morning.allowedToday, 300);
+  const evening = C.budgetSummary(c([...before, row('2026-11-07', label, 120), row('2026-11-07', label, 500, { type: C.INCOME }), row('2026-11-07', label, 'x')]), today);
+  assert.equal(evening.spentToday, 120);
+  assert.equal(evening.allowedToday, 300);
+  assert.equal(C.budgetSummary({ expense: 7000, rows: [] }, today).allowedToday, 0);
+});
+
+test('ความเต็มของใบ: เต็มเมื่อไม่เร็วกว่าแผน และเกือบหมดเมื่อเกินงบ', () => {
+  const today = D('2026-11-06'); // แผน 2,560 งบ 7 วัน = 1,493.33
+  assert.equal(C.budgetSummary({ expense: 2560 }, today).leaves, 1);
+  assert.equal(C.budgetSummary({ expense: 100 }, today).leaves, 1);
+  const mid = C.budgetSummary({ expense: 2560 + 746.67 }, today).leaves;
+  assert.ok(mid > 0.59 && mid < 0.61);
+  assert.ok(Math.abs(C.budgetSummary({ expense: 5000 }, today).leaves - 0.2) < 1e-9);
+  assert.equal(C.budgetSummary({ expense: 6401 }, today).leaves, 0.08);
+});
+
 test('ชื่อรอบตามบล็อก Fix cost', () => {
   assert.equal(C.cycleName('2026-10'), 'รอบ พ.ย. 2026');
   assert.equal(C.cycleName('2026-12'), 'รอบ ม.ค. 2027');

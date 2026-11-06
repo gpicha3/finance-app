@@ -121,6 +121,15 @@
     });
   }
 
+  // รายจ่ายของวันหนึ่งในรอบ นับเฉพาะแถวที่อ่านยอดได้
+  function spentOn(cycle, day) {
+    const total = (cycle?.rows || []).reduce((sum, r) => {
+      const d = parseYmd(r.date);
+      return r.type === EXPENSE && Number.isFinite(r.amount) && d && daysBetween(d, day) === 0 ? sum + r.amount : sum;
+    }, 0);
+    return round2(total);
+  }
+
   function budgetSummary(cycle, today) {
     const used = cycle ? cycle.expense : 0;
     const left = round2(BUDGET - used);
@@ -131,10 +140,17 @@
     const totalDays = daysBetween(period.start, period.end) + 1;
     const elapsed = Math.max(0, Math.min(totalDays, daysBetween(period.start, today) + 1));
     const planned = round2((BUDGET * elapsed) / totalDays);
+    const ahead = round2(used - planned);
+    // ยอดของวันนี้: ใช้ได้วันนี้ไม่ลดลงระหว่างวัน คิดจากงบที่เหลือตอนเริ่มวัน หารวันที่เหลือรวมวันนี้
+    const spentToday = spentOn(cycle, today);
+    const allowedToday = Math.max(0, round2((BUDGET - (used - spentToday)) / days));
+    // ความเต็มของใบ: เต็มเมื่อไม่เร็วกว่าแผน ค่อย ๆ ลดจนเร็วกว่าแผนเท่างบ 7 วัน และเกือบหมดเมื่อเกินงบ
+    const pace = (BUDGET / totalDays) * 7;
+    const leaves = left < 0 ? 0.08 : ahead <= 0 ? 1 : 1 - 0.8 * Math.min(1, ahead / pace);
     return {
       budget: BUDGET, used, left, days, payday, perDay: left > 0 ? round2(left / days) : 0,
       pct: Math.min(100, (used / BUDGET) * 100),
-      planned, plannedPct: (planned / BUDGET) * 100, ahead: round2(used - planned),
+      planned, plannedPct: (planned / BUDGET) * 100, ahead, spentToday, allowedToday, leaves,
     };
   }
 

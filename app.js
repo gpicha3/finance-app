@@ -1,6 +1,6 @@
 'use strict';
 
-const APP_VERSION = '2026.11.07.1';
+const APP_VERSION = '2026.11.07.2';
 const KEYS = { setup: 'fa.setup', data: 'fa.data', synced: 'fa.synced' };
 
 const $ = (s, el = document) => el.querySelector(s);
@@ -143,35 +143,29 @@ const cycleTitle = (c) => (isNamed(c) ? Calc.cycleName(c.key) : (c.label || 'ไ
 const cycleRange = (c) => (c.start ? Calc.fmtRange(c.start, c.end) : 'อ่านช่วงวันที่ไม่ได้');
 const dayLabel = (s) => { const d = Calc.parseYmd(s); return d ? Calc.fmtDate(d) : esc(s); };
 
-/* ---------- ตัวการ์ตูน: หยดน้ำใส ถือของตามหน้า อารมณ์เปลี่ยนตามตัวเลข ---------- */
-const MOUTHS = { happy: 'M42 66Q50 75 58 66', worried: 'M43 69Q50 65 57 69', sad: 'M42 72Q50 63 58 72' };
-const PROPS = {
-  today: '<circle cx="101" cy="39" r="13" fill="#f6c445" stroke="#c98f12" stroke-width="2.5"/><text x="101" y="44.5" text-anchor="middle" font-size="15" font-weight="700" fill="#8a5a00">฿</text>',
-  cycles: '<rect x="88" y="26" width="27" height="27" rx="5" fill="#fff"/><path d="M88 31a5 5 0 0 1 5-5h17a5 5 0 0 1 5 5v5H88z" fill="#ef5b5b"/><path d="M95 42h4M104 42h4M95 47h4" stroke="#55606b" stroke-width="2.4" stroke-linecap="round"/>',
-  fixed: '<path d="M90 24h24v30l-4-3-4 3-4-3-4 3-4-3-4 3z" fill="#fff"/><path d="M95 32h14M95 38h14M95 44h8" stroke="#55606b" stroke-width="2.2" stroke-linecap="round"/>',
-  loans: '<rect x="85" y="28" width="32" height="22" rx="4" fill="#46505e" stroke="#fff" stroke-width="1.5"/><rect x="85.8" y="33" width="30.4" height="5" fill="#20262e"/><rect x="90" y="42" width="8" height="4" rx="1" fill="#f6c445"/>',
-};
-function mascot(page, mood = 'happy') {
-  const id = `mascot-${page}`;
-  return `<span class="mascot ${page} ${mood}" data-mascot aria-hidden="true"><svg viewBox="0 0 120 100">
-    <defs><linearGradient id="${id}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff" stop-opacity=".72"/><stop offset=".45" stop-color="#fff" stop-opacity=".14"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></linearGradient></defs>
-    <ellipse class="m-shadow" cx="50" cy="95" rx="24" ry="3.5"/>
-    <g class="m-all">
-      <path class="m-limb m-wave" d="M20 62Q8 58 8 45"/>
-      <g class="m-prop">${PROPS[page]}</g>
-      <path class="m-limb" d="M80 63Q92 60 95 52"/>
-      <ellipse class="m-foot" cx="39" cy="89" rx="8" ry="4"/><ellipse class="m-foot" cx="61" cy="89" rx="8" ry="4"/>
-      <path class="m-drop" d="M50 7C60 24 84 38 84 58C84 77 69 89 50 89C31 89 16 77 16 58C16 38 40 24 50 7Z"/>
-      <path d="M50 7C60 24 84 38 84 58C84 77 69 89 50 89C31 89 16 77 16 58C16 38 40 24 50 7Z" fill="url(#${id})"/>
-      <ellipse cx="33" cy="47" rx="5" ry="9" transform="rotate(24 33 47)" fill="#fff" opacity=".65"/>
-      <ellipse cx="29" cy="65" rx="5" ry="3" fill="#ff8fa8" opacity=".55"/><ellipse cx="71" cy="65" rx="5" ry="3" fill="#ff8fa8" opacity=".55"/>
-      <g class="m-eyes">
-        <ellipse cx="39" cy="56" rx="6.5" ry="7.5" fill="#fff"/><ellipse cx="61" cy="56" rx="6.5" ry="7.5" fill="#fff"/>
-        <ellipse cx="40" cy="57" rx="3.6" ry="4.6" fill="#16202a"/><ellipse cx="62" cy="57" rx="3.6" ry="4.6" fill="#16202a"/>
-        <circle cx="41.4" cy="55" r="1.3" fill="#fff"/><circle cx="63.4" cy="55" r="1.3" fill="#fff"/>
-      </g>
-      <path class="m-mouth" d="${MOUTHS[mood]}"/>
+/* ---------- ต้นไม้: ใบใช้สีหลักของชุดสี จำนวนใบตามการใช้งบของรอบปัจจุบัน ---------- */
+const LEAF = 'M0-5C3.4-3 3.4 2 0 5C-3.4 2-3.4-3 0-5Z';
+const LEAF_COUNT = 72;
+// จัดใบแบบเกลียวให้กระจายทั่วพุ่ม และสลับลำดับเพื่อให้ใบที่หายไปกระจายทั่วต้น
+const LEAVES = Array.from({ length: LEAF_COUNT }, (_, n) => {
+  const i = (n * 29) % LEAF_COUNT;
+  const r = Math.sqrt((i + 0.5) / LEAF_COUNT);
+  const t = i * 2.39996;
+  return { x: 50 + r * 38 * Math.cos(t), y: 37 + r * 30 * Math.sin(t), a: Math.round(i * 47) % 360 };
+});
+function tree(leaves) {
+  const shown = LEAVES.slice(0, Math.max(5, Math.round(LEAF_COUNT * leaves)));
+  const groups = [0, 1, 2].map((g) => `<g class="t-leaves t${g}">${shown.map((l, i) => (i % 3 === g
+    ? `<path class="l${(i % 4) % 3}" d="${LEAF}" transform="translate(${l.x.toFixed(1)} ${l.y.toFixed(1)}) rotate(${l.a})"/>` : '')).join('')}</g>`).join('');
+  const falling = [[66, 52], [38, 56], [74, 44]].map(([x, y], i) => `<g transform="translate(${x} ${y})"><path class="fall f${i} l${i}" d="${LEAF}"/></g>`).join('');
+  return `<span class="tree" data-tree aria-hidden="true"><svg viewBox="0 0 100 100">
+    <ellipse class="t-ground" cx="50" cy="96" rx="20" ry="2.6"/>
+    <g class="t-all">
+      <path class="t-trunk" d="M50 96C50 80 49 66 50 44"/>
+      <path class="t-branch" d="M50 70C42 62 36 54 28 46M50 62C58 54 64 48 72 40M50 52C47 44 45 36 44 26"/>
+      ${groups}
     </g>
+    ${falling}
   </svg></span>`;
 }
 
@@ -183,14 +177,15 @@ function viewModel() {
   const loans = Calc.installmentSummary(data?.installments || [], now);
   const blocks = data?.fixCost || [];
   const fixYm = Calc.fixYmOf(now);
-  return { now, key, fixYm, cycles, current: cycles.find((c) => c.key === key), loans, blocks, block: blocks.find((b) => b.ym === fixYm) };
+  const current = cycles.find((c) => c.key === key);
+  return { now, key, fixYm, cycles, current, budget: Calc.budgetSummary(current, now), loans, blocks, block: blocks.find((b) => b.ym === fixYm) };
 }
 
 /* ---------- วันนี้ ---------- */
 function paceStatus(b) {
-  if (b.left < 0) return { cls: 'bad', mood: 'sad', icon: ICON_ALERT, text: `เกินงบ ${money(-b.left)}` };
-  if (b.ahead > 0) return { cls: 'warn', mood: 'worried', icon: ICON_UP, text: `เร็วกว่าแผน ${money(b.ahead)}` };
-  return { cls: 'good', mood: 'happy', icon: ICON_OK, text: b.ahead < 0 ? `ช้ากว่าแผน ${money(-b.ahead)}` : 'ตรงตามแผน' };
+  if (b.left < 0) return { cls: 'bad', icon: ICON_ALERT, text: `เกินงบ ${money(-b.left)}` };
+  if (b.ahead > 0) return { cls: 'warn', icon: ICON_UP, text: `เร็วกว่าแผน ${money(b.ahead)}` };
+  return { cls: 'good', icon: ICON_OK, text: b.ahead < 0 ? `ช้ากว่าแผน ${money(-b.ahead)}` : 'ตรงตามแผน' };
 }
 
 function budgetRing(b) {
@@ -208,7 +203,8 @@ function renderToday(vm) {
       : '<p class="empty-state">กำลังโหลดข้อมูล…</p>';
     return;
   }
-  const b = Calc.budgetSummary(vm.current, vm.now);
+  const b = vm.budget;
+  const over = b.spentToday > b.allowedToday;
   const st = paceStatus(b);
   const banner = !state.setup
     ? '<div class="banner">ข้อมูลตัวอย่าง <button data-open="settings">เชื่อมต่อ Google Sheet</button></div>'
@@ -217,21 +213,21 @@ function renderToday(vm) {
   const blk = vm.block;
   el.innerHTML = `${banner}
     <section class="panel hero">
-      ${mascot('today', st.mood)}
+      ${tree(b.leaves)}
       <div class="ring">
         ${budgetRing(b)}
         <div class="ring-in">
-          <span>ใช้ได้วันนี้</span>
-          <div class="num ${whole(b.perDay).length > 3 ? 'long' : ''}">${bigNum(b.perDay)}</div>
+          <span>ใช้วันนี้ / ใช้ได้</span>
+          <div class="num ${whole(b.spentToday).length + whole(b.allowedToday).length > 6 ? 'long' : ''}" aria-label="วันนี้ใช้ไป ${baht(b.spentToday)} จากที่ใช้ได้ ${baht(b.allowedToday)}"><b class="${over ? 'bad' : ''}">${whole(b.spentToday)}</b><i> / ${whole(b.allowedToday)}</i></div>
         </div>
       </div>
       <div class="status ${st.cls}">${st.icon}<span>${esc(st.text)}</span></div>
-      <div class="hero-foot">${b.left < 0 ? 'เกิน' : 'เหลือ'} ${whole(Math.abs(b.left))} · เงินเข้าอีก ${b.days} วัน</div>
+      <div class="hero-foot">งบรอบนี้${b.left < 0 ? 'เกิน' : 'เหลือ'} ${whole(Math.abs(b.left))} · เงินเข้าอีก ${b.days} วัน</div>
     </section>
     ${invalid}
     <div class="pair">
-      <button class="panel tile" data-goto="fixed" data-fix="${vm.fixYm}"><span>เหลือหลัง Fixed</span><b class="${blk && blk.balance < 0 ? 'bad' : ''}">${blk ? `${blk.balance < 0 ? '−' : ''}${whole(Math.abs(blk.balance))}` : '–'}</b></button>
-      <button class="panel tile" data-goto="loans"><span>ผ่อนรอบนี้</span><b>${whole(vm.loans.now)}</b></button>
+      <button class="panel tile" data-goto="fixed" data-fix="${vm.fixYm}"><span>เงินเดือนเหลือ</span><b class="${blk && blk.balance < 0 ? 'bad' : ''}">${blk ? `${blk.balance < 0 ? '−' : ''}${whole(Math.abs(blk.balance))}` : '–'}</b><small>หัก Fixed cost แล้ว</small></button>
+      <button class="panel tile" data-goto="loans"><span>ผ่อนรอบนี้</span><b>${whole(vm.loans.now)}</b><small>${vm.loans.items.filter((i) => !i.done).length - vm.loans.pending.length} รายการ</small></button>
     </div>`;
 }
 
@@ -253,7 +249,7 @@ function renderCycles(vm) {
   const back = c.key === vm.key ? '' : '<button data-cycle-now>กลับรอบปัจจุบัน</button>';
   el.innerHTML = `${pager('cyclePager', cycleTitle(c), cycleRange(c), back, idx < list.length - 1, idx > 0)}
     <section class="panel balance">
-      ${mascot('cycles', left < 0 ? 'sad' : 'happy')}
+      ${tree(vm.budget.leaves)}
       <span>ใช้ไป</span>
       <div class="big">${bigNum(c.expense)}</div>
       <div class="equation ${left < 0 ? 'bad' : ''}">${left < 0 ? 'เกินงบ' : 'เหลือจากงบ'} ${whole(Math.abs(left))}${c.income ? ` · รับเพิ่ม ${whole(c.income)}` : ''}</div>
@@ -285,7 +281,7 @@ function renderFixed(vm) {
   const back = b.ym === vm.fixYm ? '' : '<button data-fix-now>กลับรอบปัจจุบัน</button>';
   el.innerHTML = `${pager('fixPager', Calc.fmtYmLong(b.ym), Calc.fmtRange(range.start, range.end), back, idx > 0, idx < list.length - 1)}
     <section class="panel balance">
-      ${mascot('fixed', b.balance < 0 ? 'sad' : 'happy')}
+      ${tree(vm.budget.leaves)}
       <span>เงินเหลือ</span>
       <div class="big ${b.balance < 0 ? 'bad' : ''}">${bigNum(b.balance)}</div>
       <div class="equation">รับ ${whole(b.income)} − จ่าย ${whole(b.total)}</div>
@@ -355,7 +351,7 @@ function renderLoans(vm) {
     </li>`;
   }).join('');
   el.innerHTML = `<section class="panel balance">
-      ${mascot('loans')}
+      ${tree(vm.budget.leaves)}
       <span>ผ่อนต่อเดือน</span>
       <div class="big">${bigNum(monthly)}</div>
       ${pending.length ? `<div class="equation">ยังไม่รวม ${esc(pending.map((i) => i.name).join(', '))}</div>` : ''}
@@ -376,14 +372,14 @@ function renderLoans(vm) {
 /* ---------- คำอธิบายแต่ละหน้า ---------- */
 const HELP = {
   today: [
-    ['ใช้ได้วันนี้', 'งบที่เหลือหารด้วยจำนวนวันจนถึงวันเงินเดือนเข้า ถ้าใช้วันละเท่านี้ งบจะหมดพอดี'],
+    ['ใช้วันนี้ / ใช้ได้', 'ซ้ายคือรายจ่ายของวันนี้จาก Daily Log ขวาคือยอดที่ใช้ได้วันนี้ คิดจากงบที่เหลือตอนเริ่มวันหารวันที่เหลือรวมวันนี้ ยอดขวาจึงไม่ลดระหว่างวัน ตัวซ้ายเป็นสีแดงเมื่อใช้เกิน'],
     ['วงแหวน', 'ส่วนที่มีสีคือยอดที่ใช้ไปเทียบกับงบ 6,400 บาท จะเปลี่ยนเป็นสีแดงเมื่อใช้เกินงบ'],
     ['ขีดบนวงแหวน', 'แผนถึงวันนี้ คิดจากงบ × จำนวนวันที่ผ่านมารวมวันนี้ ÷ จำนวนวันทั้งรอบ ถ้าสีเลยขีดแปลว่าใช้เร็วกว่าแผน'],
     ['ป้ายเร็วหรือช้ากว่าแผน', 'ยอดที่ใช้ไปลบแผนถึงวันนี้ สีเหลืองคือเร็วกว่าแผน สีเขียวคือช้ากว่าหรือตรงแผน สีแดงคือเกินงบแล้ว'],
-    ['เหลือ · เงินเข้าอีกกี่วัน', 'งบที่เหลือของรอบนี้ และจำนวนวันจนถึงวันที่ 25 ครั้งถัดไป'],
-    ['เหลือหลัง Fixed', 'รายรับลบรายจ่ายประจำของรอบนี้จากแท็บ Fix cost กดเพื่อดูรายการ'],
-    ['ผ่อนรอบนี้', 'ยอดผ่อนทุกรายการที่อยู่ในรอบนี้รวมกัน กดเพื่อดูรายละเอียด'],
-    ['ตัวการ์ตูน', 'ยิ้มเมื่อใช้ตามแผน กังวลเมื่อใช้เร็วกว่าแผน เศร้าเมื่อเกินงบ แตะแล้วจะกระโดด'],
+    ['งบรอบนี้เหลือ · เงินเข้าอีกกี่วัน', 'งบ 6,400 บาทลบรายจ่ายของรอบนี้ และจำนวนวันจนถึงวันที่ 25 ครั้งถัดไป'],
+    ['เงินเดือนเหลือ', 'รายรับลบทุกรายการในบล็อก Fix cost ของรอบนี้ คือเงินที่เหลือจริงเมื่อจ่ายครบตามแผน กดเพื่อดูรายการ'],
+    ['ผ่อนรอบนี้', 'ยอดผ่อนทุกรายการที่อยู่ในรอบนี้รวมกัน และจำนวนรายการ กดเพื่อดูรายละเอียด'],
+    ['ต้นไม้', 'สีใบตามชุดสีที่เลือก ใบเต็มเมื่อไม่ใช้เร็วกว่าแผน ค่อย ๆ ร่วงเมื่อใช้เร็วกว่าแผน และเกือบหมดต้นเมื่อเกินงบ ทุกหน้าใช้สถานะของรอบปัจจุบัน แตะแล้วใบจะไหว'],
     ['การปัดเศษ', 'ตัวเลขสรุปปัดเป็นบาทเต็ม ส่วนรายการย่อยแสดงยอดจริง'],
   ],
   cycles: [
@@ -414,14 +410,18 @@ function initHelp() {
   $('#helpBody').innerHTML = HELP[state.tab].map(([k, v]) => `<div><dt>${esc(k)}</dt><dd>${esc(v)}</dd></div>`).join('');
 }
 
-function showTab(name) {
-  state.tab = name;
+function markTab(name) {
   $('#tabs').style.setProperty('--i', Object.keys(TITLES).indexOf(name));
   $$('#tabs [data-tab]').forEach((b) => {
     const on = b.dataset.tab === name;
     b.classList.toggle('active', on);
     if (on) b.setAttribute('aria-current', 'page'); else b.removeAttribute('aria-current');
   });
+}
+
+function showTab(name) {
+  state.tab = name;
+  markTab(name);
   $$('.view').forEach((v) => { v.hidden = v.id !== `view-${name}`; });
   $('#pageTitle').textContent = TITLES[name];
   $('#scroll').scrollTop = 0;
@@ -652,6 +652,55 @@ document.addEventListener('touchend', () => {
   }, 260);
 });
 
+/* ---------- ลากแถบเมนู: ไฮไลท์ตามนิ้ว ปล่อยที่เมนูไหนก็ไปหน้านั้น ---------- */
+(function initNavDrag() {
+  const nav = $('#tabs');
+  const names = Object.keys(TITLES);
+  const START = 6; // ขยับเกินเท่านี้จึงนับเป็นการลาก น้อยกว่านี้เป็นการแตะปกติ
+  let drag = null;
+  let swallowClick = false;
+  const geometry = () => {
+    const r = nav.getBoundingClientRect();
+    const inner = nav.clientWidth - 10; // padding แถบเมนูด้านละ 5px
+    return { left: r.left + nav.clientLeft + 5, slot: inner / names.length };
+  };
+  const finish = (name) => {
+    nav.classList.remove('dragging');
+    nav.style.removeProperty('--x');
+    drag = null;
+    if (name && name !== state.tab) showTab(name); else markTab(state.tab);
+  };
+  nav.addEventListener('pointerdown', (e) => {
+    if (e.button) return;
+    drag = { id: e.pointerId, x: e.clientX, moved: false };
+  });
+  nav.addEventListener('pointermove', (e) => {
+    if (!drag || e.pointerId !== drag.id) return;
+    if (!drag.moved) {
+      if (Math.abs(e.clientX - drag.x) < START) return;
+      drag.moved = true;
+      nav.classList.add('dragging');
+      try { nav.setPointerCapture(e.pointerId); } catch { /* ไม่รองรับก็ลากได้ */ }
+    }
+    const { left, slot } = geometry();
+    const pos = Math.max(0, Math.min(slot * (names.length - 1), e.clientX - left - slot / 2));
+    nav.style.setProperty('--x', `${pos}px`);
+    drag.name = names[Math.round(pos / slot)];
+    markTab(drag.name);
+  });
+  nav.addEventListener('pointerup', (e) => {
+    if (!drag || e.pointerId !== drag.id) return;
+    if (!drag.moved) { drag = null; return; }
+    swallowClick = true;
+    setTimeout(() => { swallowClick = false; }, 300);
+    finish(drag.name);
+  });
+  nav.addEventListener('pointercancel', () => { if (drag) finish(null); });
+  nav.addEventListener('click', (e) => {
+    if (swallowClick) { swallowClick = false; e.stopPropagation(); }
+  }, true);
+})();
+
 /* ---------- wiring ---------- */
 $('#syncBtn').addEventListener('click', () => {
   if (state.setup) sync();
@@ -659,12 +708,12 @@ $('#syncBtn').addEventListener('click', () => {
 });
 
 document.addEventListener('click', (e) => {
-  const buddy = e.target.closest('[data-mascot]');
-  if (buddy) {
-    buddy.classList.remove('jump');
-    void buddy.offsetWidth;
-    buddy.classList.add('jump');
-    setTimeout(() => buddy.classList.remove('jump'), 700);
+  const plant = e.target.closest('[data-tree]');
+  if (plant) {
+    plant.classList.remove('rustle');
+    void plant.offsetWidth;
+    plant.classList.add('rustle');
+    setTimeout(() => plant.classList.remove('rustle'), 800);
     return;
   }
   if (e.target.closest('[data-close]')) { closeTop(); return; }

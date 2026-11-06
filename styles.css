@@ -106,7 +106,14 @@ svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width:
   position: absolute; top: 5px; bottom: 5px; left: 5px; width: calc((100% - 10px) / 4); border-radius: 24px;
   background: linear-gradient(180deg, rgba(255,255,255,.28), transparent 55%), var(--accent);
   box-shadow: inset 0 1px 0 rgba(255,255,255,.45), 0 3px 10px color-mix(in srgb, var(--accent) 38%, transparent);
-  transform: translateX(calc(var(--i) * 100%)); transition: transform .42s var(--ease);
+  transform: translateX(calc(var(--i) * 100%)); transition: transform .42s cubic-bezier(.3, 1.45, .5, 1);
+}
+/* ระหว่างลาก: แถบขยายและโปร่งขึ้นเหมือนหยดกระจกใต้นิ้ว แล้วเด้งเข้าที่เมื่อปล่อย */
+.tabs { touch-action: none; }
+.tabs.dragging .tab-glider {
+  transform: translateX(var(--x, 0)) scale(1.07, 1.14); transition: transform .1s ease-out, background .2s;
+  background: linear-gradient(180deg, rgba(255,255,255,.34), transparent 60%), color-mix(in srgb, var(--accent) 72%, transparent);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.6), 0 6px 18px color-mix(in srgb, var(--accent) 45%, transparent);
 }
 .tabs button {
   position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; min-height: 52px; border-radius: 24px;
@@ -128,35 +135,36 @@ button.panel:active { transform: scale(.98); }
 .empty { color: var(--muted); font-size: 14px; padding: 15px 18px; margin: 0; }
 .empty-state { text-align: center; color: var(--muted); padding: 48px 16px; }
 
-/* ---------- ตัวการ์ตูน ---------- */
-.mascot { position: absolute; top: 12px; right: 8px; width: 76px; display: block; z-index: 1; cursor: pointer; }
-.hero .mascot { width: min(76px, 18vw); top: 10px; right: 6px; }
-.mascot svg { display: block; width: 100%; height: auto; stroke: none; overflow: visible; }
-.m-drop, .m-foot { fill: var(--accent); }
-.m-limb { fill: none; stroke: var(--accent); stroke-width: 6; stroke-linecap: round; }
-.m-mouth { fill: none; stroke: #fff; stroke-width: 3; stroke-linecap: round; }
-.m-shadow { fill: var(--text); opacity: .14; transform-origin: 50px 95px; animation: m-shade 2.6s ease-in-out infinite; }
-.m-all { transform-origin: 50px 92px; animation: m-bob 2.6s ease-in-out infinite; }
-.m-eyes { transform-origin: 50px 56px; animation: m-blink 4.8s infinite; }
-.m-wave { transform-origin: 20px 62px; animation: m-wave 1.5s ease-in-out infinite alternate; }
-.m-prop { transform-origin: 100px 50px; animation: m-prop 2.2s ease-in-out infinite alternate; }
-.cycles .m-all { animation: m-hop 1.8s ease-in-out infinite; }
-.cycles .m-shadow { animation-duration: 1.8s; }
-.fixed .m-all { animation: m-sway 3s ease-in-out infinite alternate; }
-.fixed .m-shadow { animation: none; }
-.loans .m-all { animation: m-stretch 2.4s ease-in-out infinite; }
-.worried .m-all, .sad .m-all { animation-duration: 3.8s; }
-.sad .m-wave { animation-duration: 2.8s; }
-.mascot.jump .m-all { animation: m-jump .65s var(--ease); }
-@keyframes m-bob { 0%, 100% { transform: none; } 50% { transform: translateY(-4px) scale(1.02, .98); } }
-@keyframes m-shade { 0%, 100% { transform: none; } 50% { transform: scale(.82); } }
-@keyframes m-blink { 0%, 93%, 100% { transform: none; } 96% { transform: scaleY(.08); } }
-@keyframes m-wave { from { transform: rotate(-12deg); } to { transform: rotate(24deg); } }
-@keyframes m-prop { from { transform: translateY(1px) rotate(-5deg); } to { transform: translateY(-3px) rotate(5deg); } }
-@keyframes m-hop { 0%, 55%, 100% { transform: none; } 30% { transform: translateY(-9px) scale(.98, 1.03); } 62% { transform: scale(1.05, .94); } }
-@keyframes m-sway { from { transform: rotate(-5deg); } to { transform: rotate(5deg); } }
-@keyframes m-stretch { 0%, 100% { transform: scale(1, 1); } 50% { transform: scale(.95, 1.06); } }
-@keyframes m-jump { 0% { transform: scale(1.08, .9); } 40% { transform: translateY(-20px) scale(.96, 1.05); } 80% { transform: scale(1.05, .94); } 100% { transform: none; } }
+/* ---------- ต้นไม้ ---------- */
+.tree { position: absolute; top: 8px; right: 6px; width: 86px; display: block; z-index: 1; cursor: pointer; }
+.hero .tree { width: min(90px, 22vw); }
+.tree svg { display: block; width: 100%; height: auto; stroke: none; overflow: visible; }
+.t-ground { fill: var(--text); opacity: .12; }
+.t-trunk, .t-branch { fill: none; stroke: #94673f; stroke-linecap: round; }
+.t-trunk { stroke-width: 6; }
+.t-branch { stroke-width: 3; }
+.l0 { fill: var(--accent); }
+.l1 { fill: color-mix(in srgb, var(--accent) 76%, #fff); }
+.l2 { fill: color-mix(in srgb, var(--accent) 80%, #000); }
+/* ลมเบา ๆ: ทั้งต้นเอนนิดเดียว ใบแต่ละกลุ่มไหวไม่พร้อมกัน */
+.t-all { transform-origin: 50px 96px; animation: t-lean 5.5s ease-in-out infinite alternate; }
+.t-leaves { transform-origin: 50px 45px; animation: t-flutter 3.4s ease-in-out infinite alternate; }
+.t1 { animation-duration: 4.3s; animation-delay: -1.2s; }
+.t2 { animation-duration: 5.1s; animation-delay: -2.4s; }
+/* ใบร่วง: นาน ๆ ครั้ง และจางหมดก่อนถึงโคนต้น จึงไม่บังเนื้อหาอื่น */
+.fall { opacity: 0; animation: t-fall 13s linear infinite; }
+.f1 { animation-duration: 19s; animation-delay: -7s; }
+.f2 { animation-duration: 27s; animation-delay: -16s; }
+.tree.rustle .t-all { animation: t-rustle .75s ease-in-out; }
+@keyframes t-lean { from { transform: rotate(-1.1deg); } to { transform: rotate(1.6deg); } }
+@keyframes t-flutter { from { transform: rotate(-1.8deg) translateX(-.5px); } to { transform: rotate(2.2deg) translateX(.8px); } }
+@keyframes t-fall {
+  0% { opacity: 0; transform: translate(0, 0) rotate(0); }
+  2% { opacity: .95; }
+  12% { opacity: .75; transform: translate(5px, 20px) rotate(120deg); }
+  21%, 100% { opacity: 0; transform: translate(9px, 36px) rotate(230deg); }
+}
+@keyframes t-rustle { 0%, 100% { transform: none; } 20% { transform: rotate(-3.5deg); } 50% { transform: rotate(3deg); } 78% { transform: rotate(-1.4deg); } }
 
 /* ---------- หน้าวันนี้ ---------- */
 .hero { padding: 22px 18px 18px; display: flex; flex-direction: column; align-items: center; gap: 12px; }
@@ -171,6 +179,8 @@ button.panel:active { transform: scale(.98); }
 .ring-in span { font-size: 13px; color: var(--muted); }
 .num { font-size: min(56px, 15vw); font-weight: 300; letter-spacing: -.03em; line-height: 1.1; font-variant-numeric: tabular-nums; }
 .num.long { font-size: min(42px, 11.5vw); }
+.num b { font-weight: inherit; }
+.num b.bad { color: var(--bad); }
 .num i, .big i { font-style: normal; font-size: .42em; letter-spacing: 0; color: var(--muted); }
 .status { display: inline-flex; align-items: center; gap: 5px; font-size: 13.5px; font-weight: 600; padding: 4px 12px; border-radius: 99px; font-variant-numeric: tabular-nums; }
 .status svg { width: 15px; height: 15px; stroke-width: 2.6; flex: none; }
@@ -181,7 +191,8 @@ button.panel:active { transform: scale(.98); }
 .pair { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
 .pair .tile { padding: 13px 16px; border-radius: 22px; }
 .tile span { display: block; font-size: 13px; color: var(--muted); }
-.tile b { font-size: 22px; font-weight: 500; letter-spacing: -.01em; font-variant-numeric: tabular-nums; }
+.tile b { display: block; font-size: 22px; font-weight: 500; letter-spacing: -.01em; font-variant-numeric: tabular-nums; }
+.tile small { display: block; font-size: 12.5px; color: var(--muted); }
 .tile b.bad { color: var(--bad); }
 .bar { height: 5px; border-radius: 3px; background: var(--hair); overflow: hidden; }
 .bar i { display: block; height: 100%; border-radius: 3px; background: var(--accent); }
@@ -197,11 +208,11 @@ button.panel:active { transform: scale(.98); }
 
 /* ---------- ยอดใหญ่ ---------- */
 .balance { padding: 18px 18px 18px 20px; min-height: 112px; }
-.balance > span:not(.mascot) { font-size: 13px; color: var(--muted); }
-.balance .mascot { top: 50%; margin-top: -33px; }
-.big { font-size: 38px; font-weight: 300; letter-spacing: -.02em; line-height: 1.15; font-variant-numeric: tabular-nums; padding-right: 76px; }
+.balance > span:not(.tree) { font-size: 13px; color: var(--muted); }
+.balance .tree { top: 50%; margin-top: -43px; }
+.big { font-size: 38px; font-weight: 300; letter-spacing: -.02em; line-height: 1.15; font-variant-numeric: tabular-nums; padding-right: 90px; }
 .big.bad { color: var(--bad); }
-.equation { margin-top: 3px; font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums; padding-right: 76px; }
+.equation { margin-top: 3px; font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums; padding-right: 90px; }
 .equation.bad { color: var(--bad); }
 
 /* ---------- รายการ ---------- */
