@@ -1,7 +1,7 @@
 'use strict';
 
-const APP_VERSION = '2026.11.07.5';
-const KEYS = { setup: 'fa.setup', data: 'fa.data', synced: 'fa.synced' };
+const APP_VERSION = '2026.11.07.6';
+const KEYS = { setup: 'fa.setup', data: 'fa.data', synced: 'fa.synced', buddy: 'fa.buddy' };
 
 const $ = (s, el = document) => el.querySelector(s);
 const $$ = (s, el = document) => [...el.querySelectorAll(s)];
@@ -69,6 +69,7 @@ const state = {
   cycleKey: null, // รอบที่กำลังดูในหน้ารอบเงินเดือน
   fixYm: null,    // เดือนที่กำลังดูในหน้า Fixed cost
   tab: 'today',
+  buddy: store.get(KEYS.buddy, 'tree'),
 };
 state.data = state.setup ? store.get(KEYS.data, null) : demoData();
 
@@ -144,31 +145,7 @@ const cycleTitle = (c) => (isNamed(c) ? Calc.cycleName(c.key) : (c.label || 'ไ
 const cycleRange = (c) => (c.start ? Calc.fmtRange(c.start, c.end) : 'อ่านช่วงวันที่ไม่ได้');
 const dayLabel = (s) => { const d = Calc.parseYmd(s); return d ? Calc.fmtDate(d) : esc(s); };
 
-/* ---------- ต้นไม้: ใบใช้สีหลักของชุดสี จำนวนใบตามการใช้งบของรอบปัจจุบัน ---------- */
-const LEAF = 'M0-5C3.4-3 3.4 2 0 5C-3.4 2-3.4-3 0-5Z';
-const LEAF_COUNT = 72;
-// จัดใบแบบเกลียวให้กระจายทั่วพุ่ม และสลับลำดับเพื่อให้ใบที่หายไปกระจายทั่วต้น
-const LEAVES = Array.from({ length: LEAF_COUNT }, (_, n) => {
-  const i = (n * 29) % LEAF_COUNT;
-  const r = Math.sqrt((i + 0.5) / LEAF_COUNT);
-  const t = i * 2.39996;
-  return { x: 50 + r * 38 * Math.cos(t), y: 37 + r * 30 * Math.sin(t), a: Math.round(i * 47) % 360 };
-});
-function tree(leaves) {
-  const shown = LEAVES.slice(0, Math.max(5, Math.round(LEAF_COUNT * leaves)));
-  const groups = [0, 1, 2].map((g) => `<g class="t-leaves t${g}">${shown.map((l, i) => (i % 3 === g
-    ? `<path class="l${(i % 4) % 3}" d="${LEAF}" transform="translate(${l.x.toFixed(1)} ${l.y.toFixed(1)}) rotate(${l.a})"/>` : '')).join('')}</g>`).join('');
-  const falling = [[66, 52], [38, 56], [74, 44]].map(([x, y], i) => `<g transform="translate(${x} ${y})"><path class="fall f${i} l${i}" d="${LEAF}"/></g>`).join('');
-  return `<span class="tree" data-tree aria-hidden="true"><svg viewBox="0 0 100 100">
-    <ellipse class="t-ground" cx="50" cy="96" rx="20" ry="2.6"/>
-    <g class="t-all">
-      <path class="t-trunk" d="M50 96C50 80 49 66 50 44"/>
-      <path class="t-branch" d="M50 70C42 62 36 54 28 46M50 62C58 54 64 48 72 40M50 52C47 44 45 36 44 26"/>
-      ${groups}
-    </g>
-    ${falling}
-  </svg></span>`;
-}
+const buddy = (leaves) => renderBuddy(state.buddy, leaves);
 
 function viewModel() {
   const data = state.data;
@@ -217,7 +194,7 @@ function renderToday(vm) {
     <section class="panel hero">
       <div class="ring">
         ${budgetRing(b)}
-        ${tree(b.leaves)}
+        ${buddy(b.leaves)}
       </div>
       <div class="today-num">
         <span>ใช้วันนี้ / ใช้ได้</span>
@@ -251,7 +228,7 @@ function renderCycles(vm) {
   const back = c.key === vm.key ? '' : '<button data-cycle-now>กลับรอบปัจจุบัน</button>';
   el.innerHTML = `${pager('cyclePager', cycleTitle(c), cycleRange(c), back, idx < list.length - 1, idx > 0)}
     <section class="panel balance">
-      ${tree(vm.budget.leaves)}
+      ${buddy(vm.budget.leaves)}
       <span>ใช้ไป</span>
       <div class="big">${bigNum(c.expense)}</div>
       <div class="equation ${left < 0 ? 'bad' : ''}">${left < 0 ? 'เกินงบ' : 'เหลือจากงบ'} ${whole(Math.abs(left))}${c.income ? ` · รับเพิ่ม ${whole(c.income)}` : ''}</div>
@@ -283,7 +260,7 @@ function renderFixed(vm) {
   const back = b.ym === vm.fixYm ? '' : '<button data-fix-now>กลับรอบปัจจุบัน</button>';
   el.innerHTML = `${pager('fixPager', Calc.fmtYmLong(b.ym), Calc.fmtRange(range.start, range.end), back, idx > 0, idx < list.length - 1)}
     <section class="panel balance">
-      ${tree(vm.budget.leaves)}
+      ${buddy(vm.budget.leaves)}
       <span>เงินเหลือ</span>
       <div class="big ${b.balance < 0 ? 'bad' : ''}">${bigNum(b.balance)}</div>
       <div class="equation">รับ ${whole(b.income)} − จ่าย ${whole(b.total)}</div>
@@ -357,7 +334,7 @@ function renderLoans(vm) {
     </li>`;
   }).join('');
   el.innerHTML = `<section class="panel balance">
-      ${tree(vm.budget.leaves)}
+      ${buddy(vm.budget.leaves)}
       <span>ผ่อนต่อเดือน</span>
       <div class="big">${bigNum(monthly)}</div>
       ${pending.length ? `<div class="equation">ยังไม่รวม ${esc(pending.map((i) => i.name).join(', '))}</div>` : ''}
@@ -440,6 +417,12 @@ function renderThemeControls() {
     </button>`).join('');
 }
 
+function renderBuddyChoices() {
+  $('#buddies').innerHTML = BUDDIES.map(([id, name]) => `<button type="button" class="buddy-choice${id === state.buddy ? ' active' : ''}" data-choose="${id}" aria-pressed="${id === state.buddy}">
+    <i>${renderBuddy(id, 1)}</i>${esc(name)}
+  </button>`).join('');
+}
+
 function renderConnection(editing = false) {
   const connected = !!state.setup;
   $('#connCard').hidden = !connected || editing;
@@ -459,6 +442,7 @@ function renderConnection(editing = false) {
 
 function initSettings() {
   renderThemeControls();
+  renderBuddyChoices();
   renderConnection();
   $('#appVersion').textContent = APP_VERSION;
 }
@@ -474,6 +458,14 @@ $('#palettes').addEventListener('click', (e) => {
   if (!b) return;
   saveTheme({ ...loadTheme(), palette: b.dataset.palette });
   renderThemeControls();
+});
+$('#buddies').addEventListener('click', (e) => {
+  const b = e.target.closest('[data-choose]');
+  if (!b) return;
+  state.buddy = b.dataset.choose;
+  store.set(KEYS.buddy, state.buddy);
+  renderBuddyChoices();
+  render();
 });
 $('#editLinkBtn').addEventListener('click', () => { renderConnection(true); $('#setupInput').focus(); });
 $('#cancelEditBtn').addEventListener('click', () => renderConnection());
@@ -639,12 +631,13 @@ $('#scroll').addEventListener('toggle', (e) => {
 }, true);
 
 document.addEventListener('click', (e) => {
-  const plant = e.target.closest('[data-tree]');
-  if (plant) {
-    plant.classList.remove('rustle');
-    void plant.offsetWidth;
-    plant.classList.add('rustle');
-    setTimeout(() => plant.classList.remove('rustle'), 800);
+  const pet = e.target.closest('[data-buddy]');
+  if (pet) {
+    if (pet.closest('#buddies')) return; // ในหน้าตั้งค่าแตะเพื่อเลือก ไม่ใช่เล่น
+    pet.classList.remove('poke');
+    void pet.offsetWidth;
+    pet.classList.add('poke');
+    setTimeout(() => pet.classList.remove('poke'), 700);
     return;
   }
   const tab = e.target.closest('[data-tab]');

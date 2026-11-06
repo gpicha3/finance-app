@@ -154,6 +154,9 @@
     };
   }
 
+  // อารมณ์ของตัวละครจากความเต็มของใบ: ดีเมื่อไม่เร็วกว่าแผน แย่เมื่อใบเหลือไม่ถึงครึ่ง
+  const moodOf = (leaves) => (leaves >= 1 ? 'good' : leaves >= 0.5 ? 'ok' : 'bad');
+
   // ชื่อรอบตามบล็อก Fix cost เช่น คีย์ 2026-10 = รอบ พ.ย. 2026
   const cycleName = (key) => `รอบ ${fmtYm(ymAdd(key, 1))}`;
 
@@ -209,7 +212,7 @@
     round2, parseYmd, ymOf, ymAdd, ymDay, daysBetween,
     fmtDayMonth, fmtDate, fmtYm, fmtYmLong, fmtRange,
     cycleKeyOf, budgetPeriod, fixYmOf, fixPeriod, nextPayday, parseCycleLabel, resolveCycle,
-    buildCycles, budgetSummary, cycleName, installmentStatus, installmentSummary, installmentSteps,
+    buildCycles, budgetSummary, moodOf, cycleName, installmentStatus, installmentSummary, installmentSteps,
   };
   root.Calc = api;
   if (typeof module !== 'undefined' && module.exports) module.exports = api;

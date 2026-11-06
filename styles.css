@@ -153,12 +153,12 @@ button.panel:active { transform: scale(.98); }
 .empty { color: var(--muted); font-size: 14px; padding: 15px 18px; margin: 0; }
 .empty-state { text-align: center; color: var(--muted); padding: 48px 16px; }
 
-/* ---------- ต้นไม้ ---------- */
-.tree { position: absolute; top: 8px; right: 6px; width: 86px; display: block; z-index: 1; cursor: pointer; }
-/* หน้าวันนี้: ต้นไม้เป็นจุดเด่นกลางวงแหวน */
-.hero .tree { top: 9%; left: 13%; width: 74%; }
-.tree svg { display: block; width: 100%; height: auto; stroke: none; overflow: visible; }
-.t-ground { fill: var(--text); opacity: .12; }
+/* ---------- ตัวละคร ---------- */
+.buddy { position: absolute; top: 8px; right: 6px; width: 86px; display: block; z-index: 1; cursor: pointer; }
+/* หน้าวันนี้: ตัวละครเป็นจุดเด่นกลางวงแหวน */
+.hero .buddy { top: 9%; left: 13%; width: 74%; }
+.buddy svg { display: block; width: 100%; height: auto; stroke: none; overflow: visible; }
+.b-ground { fill: var(--text); opacity: .12; }
 .t-trunk, .t-branch { fill: none; stroke: #94673f; stroke-linecap: round; }
 .t-trunk { stroke-width: 6; }
 .t-branch { stroke-width: 3; }
@@ -174,7 +174,6 @@ button.panel:active { transform: scale(.98); }
 .fall { opacity: 0; animation: t-fall 13s linear infinite; }
 .f1 { animation-duration: 19s; animation-delay: -7s; }
 .f2 { animation-duration: 27s; animation-delay: -16s; }
-.tree.rustle .t-all { animation: t-rustle .75s ease-in-out; }
 @keyframes t-lean { from { transform: rotate(-1.1deg); } to { transform: rotate(1.6deg); } }
 @keyframes t-flutter { from { transform: rotate(-1.8deg) translateX(-.5px); } to { transform: rotate(2.2deg) translateX(.8px); } }
 @keyframes t-fall {
@@ -183,7 +182,44 @@ button.panel:active { transform: scale(.98); }
   12% { opacity: .75; transform: translate(5px, 20px) rotate(120deg); }
   21%, 100% { opacity: 0; transform: translate(9px, 36px) rotate(230deg); }
 }
-@keyframes t-rustle { 0%, 100% { transform: none; } 20% { transform: rotate(-3.5deg); } 50% { transform: rotate(3deg); } 78% { transform: rotate(-1.4deg); } }
+/* ตัวละครอื่น */
+.buddy.poke svg { transform-origin: 50% 96%; animation: b-poke .65s var(--ease); }
+.b-accent { fill: var(--accent); }
+.b-collar { stroke: var(--accent); stroke-width: 4; stroke-linecap: round; }
+.b-limb { fill: none; stroke: #f6cfa8; stroke-width: 5.5; stroke-linecap: round; }
+.b-line { fill: none; stroke-width: 2.6; stroke-linecap: round; stroke-linejoin: round; }
+.b-line.thin { stroke-width: 2; }
+.b-all { transform-origin: 50px 94px; animation: b-bob 2.6s ease-in-out infinite; }
+.b-all.droop { animation: b-sigh 4.4s ease-in-out infinite; }
+.good .b-all { animation-duration: 1.9s; }
+.b-eyes { animation: b-blink 4.6s infinite; }
+.b-tail { transform-origin: 70px 86px; animation: b-wag 1.5s ease-in-out infinite alternate; }
+.good .b-tail { animation-duration: .42s; }
+.bad .b-tail { animation-duration: 3.2s; }
+.b-tongue { transform-origin: 50px 65px; animation: b-pant .5s ease-in-out infinite alternate; }
+.b-arm-l { transform-origin: 40px 71px; animation: b-wave-l .8s ease-in-out infinite alternate; }
+.b-arm-r { transform-origin: 60px 71px; animation: b-wave-r .8s ease-in-out infinite alternate; }
+.b-rays { animation: b-spin 16s linear infinite; }
+.b-drift { animation: b-drift 6s ease-in-out infinite alternate; }
+.b-rain { animation: b-rain 1.05s linear infinite; }
+.r1 { animation-delay: -.35s; }
+.r2 { animation-delay: -.7s; }
+.b-tear { animation: b-tear 3s ease-in infinite; }
+.b-heart { opacity: 0; animation: b-heart 3.6s ease-out infinite; }
+.b-heart.h2 { animation-delay: -1.8s; }
+@keyframes b-poke { 0% { transform: scale(1.06, .92); } 40% { transform: translateY(-9%) scale(.97, 1.05); } 75% { transform: scale(1.04, .96); } 100% { transform: none; } }
+@keyframes b-bob { 0%, 100% { transform: none; } 50% { transform: translateY(-2.4px) scale(1.012, .988); } }
+@keyframes b-sigh { 0%, 100% { transform: none; } 50% { transform: translateY(1.2px) scale(1.01, .985); } }
+@keyframes b-blink { 0%, 93%, 100% { transform: none; } 96% { transform: scaleY(.1); } }
+@keyframes b-wag { from { transform: rotate(-12deg); } to { transform: rotate(14deg); } }
+@keyframes b-pant { from { transform: scaleY(.82); } to { transform: scaleY(1.08); } }
+@keyframes b-wave-l { from { transform: rotate(-8deg); } to { transform: rotate(14deg); } }
+@keyframes b-wave-r { from { transform: rotate(8deg); } to { transform: rotate(-14deg); } }
+@keyframes b-spin { to { transform: rotate(360deg); } }
+@keyframes b-drift { from { transform: translateX(-3px); } to { transform: translateX(4px); } }
+@keyframes b-rain { 0% { transform: translate(0, 0); opacity: 0; } 20% { opacity: .9; } 80% { opacity: .75; } 100% { transform: translate(-2.6px, 12px); opacity: 0; } }
+@keyframes b-tear { 0%, 30% { transform: none; opacity: 0; } 42% { opacity: .95; } 85% { opacity: .85; } 100% { transform: translateY(15px); opacity: 0; } }
+@keyframes b-heart { 0% { transform: translateY(6px) scale(.5); opacity: 0; } 22% { opacity: .9; } 70% { opacity: .55; } 100% { transform: translateY(-11px) scale(1); opacity: 0; } }
 
 /* ---------- หน้าวันนี้ ---------- */
 .hero { padding: 20px 18px 18px; display: flex; flex-direction: column; align-items: center; gap: 10px; }
@@ -231,7 +267,7 @@ button.panel:active { transform: scale(.98); }
 .list details:nth-child(2n) .tube-glow { animation-delay: -1.3s; }
 .list details:nth-child(3n) .tube-glow { animation-delay: -2.4s; }
 .view.enter .tube-glow { animation: tube-fill .9s var(--ease) both, glow-breathe 3.4s ease-in-out infinite alternate; }
-@keyframes glow-breathe { from { opacity: .14; } to { opacity: .42; } }
+@keyframes glow-breathe { from { opacity: .07; } to { opacity: .24; } }
 .tube i {
   --water: var(--accent); position: absolute; inset: 0 auto 0 0; min-width: 10px; display: block;
   background: linear-gradient(180deg, color-mix(in srgb, var(--accent) 72%, #fff), var(--accent) 58%, color-mix(in srgb, var(--accent) 82%, #000));
@@ -268,8 +304,8 @@ button.panel:active { transform: scale(.98); }
 
 /* ---------- ยอดใหญ่ ---------- */
 .balance { padding: 18px 18px 18px 20px; min-height: 112px; }
-.balance > span:not(.tree) { font-size: 13px; color: var(--muted); }
-.balance .tree { top: 50%; margin-top: -43px; }
+.balance > span:not(.buddy) { font-size: 13px; color: var(--muted); }
+.balance .buddy { top: 50%; margin-top: -43px; }
 .big { font-size: 38px; font-weight: 300; letter-spacing: -.02em; line-height: 1.15; font-variant-numeric: tabular-nums; padding-right: 90px; }
 .big.bad { color: var(--bad); }
 .equation { margin-top: 3px; font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums; padding-right: 90px; }
@@ -315,8 +351,8 @@ details[open] > :not(summary) { animation: open-in .32s var(--ease); }
 .chart .area { fill: url(#waterGrad); }
 .chart .glow { fill: none; stroke: var(--accent); stroke-width: 6; stroke-linejoin: round; stroke-linecap: round; animation: glow-breathe 3.4s ease-in-out infinite alternate; }
 /* จุดแสงวิ่งไปตามเส้น */
-.chart .spark { fill: none; stroke: color-mix(in srgb, var(--accent) 45%, #fff); stroke-width: 2.5; stroke-linecap: round; stroke-dasharray: 7 93; animation: line-spark 6s linear infinite; }
-@keyframes line-spark { from { stroke-dashoffset: 100; opacity: .95; } 92% { opacity: .95; } to { stroke-dashoffset: 0; opacity: 0; } }
+.chart .spark { fill: none; stroke: color-mix(in srgb, var(--accent) 45%, #fff); stroke-width: 2.5; stroke-linecap: round; stroke-dasharray: 6 94; animation: line-spark 6s linear infinite; }
+@keyframes line-spark { from { stroke-dashoffset: 100; opacity: .7; } 92% { opacity: .7; } to { stroke-dashoffset: 0; opacity: 0; } }
 .chart .line { fill: none; stroke: var(--accent); stroke-width: 2.5; stroke-linejoin: round; stroke-linecap: round; }
 .chart .dot { fill: var(--panel); stroke: var(--accent); stroke-width: 2.5; }
 .chart .dot.now { fill: var(--accent); stroke: var(--panel); }
@@ -344,6 +380,12 @@ details[open] > :not(summary) { animation: open-in .32s var(--ease); }
 .palette.active { color: var(--text); font-weight: 600; }
 .palette.active i { box-shadow: 0 0 0 2px var(--panel), 0 0 0 4px var(--accent); }
 .palette.active svg { visibility: visible; }
+.buddies { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; padding: 14px 12px; }
+.buddy-choice { display: flex; flex-direction: column; align-items: center; gap: 5px; font-size: 12.5px; line-height: 1.2; color: var(--muted); text-align: center; }
+.buddy-choice i { position: relative; display: block; width: 100%; aspect-ratio: 1; border-radius: 16px; background: var(--hair); }
+.buddy-choice .buddy { top: 10%; left: 10%; right: auto; width: 80%; pointer-events: none; }
+.buddy-choice.active { color: var(--text); font-weight: 600; }
+.buddy-choice.active i { box-shadow: 0 0 0 2px var(--panel), 0 0 0 4px var(--accent); }
 .set-row { display: flex; align-items: center; gap: 12px; padding: 14px 16px; }
 .set-text { flex: 1; min-width: 0; display: flex; flex-direction: column; }
 .set-text small { font-size: 13px; color: var(--muted); overflow-wrap: anywhere; }

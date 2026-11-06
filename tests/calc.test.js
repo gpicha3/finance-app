@@ -135,6 +135,17 @@ test('ความเต็มของใบ: เต็มเมื่อไม
   assert.equal(C.budgetSummary({ expense: 6401 }, today).leaves, 0.08);
 });
 
+test('อารมณ์ตัวละคร: ดีเมื่อไม่เร็วกว่าแผน แย่เมื่อเร็วกว่ามากหรือเกินงบ', () => {
+  const today = D('2026-11-06'); // แผน 2,560 งบ 7 วัน = 1,493.33
+  const mood = (expense) => C.moodOf(C.budgetSummary({ expense }, today).leaves);
+  assert.equal(mood(2000), 'good');
+  assert.equal(mood(2560), 'good');
+  assert.equal(mood(2800), 'ok');
+  assert.equal(mood(3490), 'ok'); // ใบครึ่งต้นอยู่ที่ยอดประมาณ 3,493
+  assert.equal(mood(3500), 'bad');
+  assert.equal(mood(6401), 'bad');
+});
+
 test('ชื่อรอบตามบล็อก Fix cost', () => {
   assert.equal(C.cycleName('2026-10'), 'รอบ พ.ย. 2026');
   assert.equal(C.cycleName('2026-12'), 'รอบ ม.ค. 2027');

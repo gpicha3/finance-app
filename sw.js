@@ -1,6 +1,6 @@
 // แคชไฟล์แอปไว้ใช้ออฟไลน์ (ไม่แคชการเรียก Google Apps Script)
-const CACHE = 'finance-app-v10';
-const ASSETS = ['./', 'index.html', 'styles.css', 'calc.js', 'app.js', 'theme.js', 'manifest.json', 'icons/icon.svg', 'icons/icon-180.png', 'icons/icon-192.png', 'icons/icon-512.png'];
+const CACHE = 'finance-app-v11';
+const ASSETS = ['./', 'index.html', 'styles.css', 'calc.js', 'buddies.js', 'app.js', 'theme.js', 'manifest.json', 'icons/icon.svg', 'icons/icon-180.png', 'icons/icon-192.png', 'icons/icon-512.png'];
 
 self.addEventListener('install', (e) => {
   e.waitUntil(caches.open(CACHE).then((c) => c.addAll(ASSETS)).then(() => self.skipWaiting()));
