@@ -251,7 +251,7 @@ button.panel:active { transform: scale(.98); }
 .tile b { display: block; font-size: 22px; font-weight: 500; letter-spacing: -.01em; font-variant-numeric: tabular-nums; }
 .tile small { display: block; font-size: 12.5px; color: var(--muted); }
 .tile b.bad { color: var(--bad); }
-/* หลอดน้ำ: ท่อกระจกแนวนอน ปลายน้ำโค้งมน และแสงวิ่งเบา ๆ */
+/* หลอดน้ำ: ท่อกระจกแนวนอน ปลายน้ำโค้งมน */
 .tube { position: relative; height: 14px; }
 .tube-in {
   position: absolute; inset: 0; border-radius: 7px; overflow: hidden; background: var(--hair);
@@ -271,14 +271,9 @@ button.panel:active { transform: scale(.98); }
   position: absolute; inset: 0 auto 0 0; min-width: 14px; display: block; border-radius: 7px; overflow: hidden;
   background: linear-gradient(180deg, color-mix(in srgb, var(--accent) 72%, #fff), var(--accent) 58%, color-mix(in srgb, var(--accent) 82%, #000));
 }
-.tube i::before {
-  content: ''; position: absolute; top: 0; bottom: 0; left: 0; width: 34px; background: linear-gradient(90deg, transparent, rgba(255,255,255,.3), transparent);
-  animation: water-glint 4.2s ease-in-out infinite;
-}
 .tube.over .tube-glow { background: var(--bad); }
 .tube.over i { background: linear-gradient(180deg, color-mix(in srgb, var(--bad) 72%, #fff), var(--bad) 58%, color-mix(in srgb, var(--bad) 82%, #000)); }
 .view.enter .tube i { animation: tube-fill .9s var(--ease) both; }
-@keyframes water-glint { 0% { left: 0; opacity: 0; } 15% { opacity: 1; } 55% { opacity: 1; } 70%, 100% { left: calc(100% - 34px); opacity: 0; } }
 @keyframes tube-fill { from { width: 0; min-width: 0; } }
 
 /* เปลี่ยนหน้า: ชิ้นส่วนเลื่อนเข้าทีละชิ้นตามทิศของแท็บ (ห้ามใส่ opacity ที่ตัวแม่ กระจกจะหยุดเบลอ) */
@@ -297,8 +292,15 @@ button.panel:active { transform: scale(.98); }
 .pager-dots i { width: 6px; height: 6px; border-radius: 50%; background: var(--hair); transition: background .2s, width .2s; }
 .pager-dots i.on { width: 16px; border-radius: 3px; background: var(--accent); }
 /* ปัดซ้ายขวาเปลี่ยนรอบ ส่วนแนวตั้งยังเลื่อนหน้าได้ */
-#view-cycles, #view-fixed { touch-action: pan-y; transition: transform .28s var(--ease); }
-#view-cycles.swiping, #view-fixed.swiping { transition: none; }
+#view-cycles, #view-fixed { position: relative; touch-action: pan-y; }
+/* การ์ดซ้อน: หน้าปัจจุบันอยู่บน รอบถัดไปอยู่ด้านหลัง */
+.swipe-top { position: relative; z-index: 1; transform-origin: 50% 40%; will-change: transform, opacity; }
+.swipe-under { position: absolute; top: 0; left: 0; right: 0; z-index: 0; pointer-events: none; opacity: 0; transform: scale(.94); transform-origin: 50% 30%; will-change: transform, opacity; }
+/* ระหว่างลากการ์ดบนทึบขึ้นเพื่อไม่ให้ตัวหนังสือสองหน้าทับกัน ส่วนหัวข้อนอกการ์ดจางตามระยะลาก */
+.swipe-top .panel { background: color-mix(in srgb, var(--panel) 95%, transparent); }
+.swipe-top > :not(.panel) { opacity: calc(1 - var(--p, 0) * 3); }
+.swipe-anim .swipe-top, .swipe-anim .swipe-under { transition: transform .34s var(--ease), opacity .28s ease-out; }
+.swipe-anim .swipe-top > :not(.panel) { transition: opacity .2s; }
 .pager-back { text-align: center; font-size: 13px; margin: -6px 0 10px; }
 .pager-back button { font-weight: 600; color: var(--accent); }
 

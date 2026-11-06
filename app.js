@@ -1,6 +1,6 @@
 'use strict';
 
-const APP_VERSION = '2026.11.07.16';
+const APP_VERSION = '2026.11.07.17';
 const KEYS = { setup: 'fa.setup', data: 'fa.data', synced: 'fa.synced', buddy: 'fa.buddy', cycleView: 'fa.cycleView' };
 
 const $ = (s, el = document) => el.querySelector(s);
@@ -694,14 +694,87 @@ function stepPeriod(kind, d) {
   return true;
 }
 
+// ปัดแบบการ์ดซ้อน: หน้าปัจจุบันตามนิ้วและย่อลง รอบถัดไปโผล่จากด้านหลัง ปล่อยแล้วจึงสลับข้อมูลจริง
 function swipePeriods(view, kind) {
-  const TRIGGER = 48;
+  const TRIGGER = 56;
+  const FLICK = 0.5; // พิกเซลต่อมิลลิวินาที ปัดเร็วแม้ระยะสั้นก็นับ
+  const DURATION = 340;
+  const keyName = kind === 'cycles' ? 'cycleKey' : 'fixYm';
   let s = null;
+  let cards = null;
+  let busy = false;
   let swallowClick = false;
-  const reset = () => { view.classList.remove('swiping'); view.style.transform = ''; };
+
+  // เรนเดอร์รอบข้างเคียงเพื่อเอา HTML มาวางด้านหลัง โดยเก็บหน้าปัจจุบันไว้เหมือนเดิม รายการที่กางอยู่จึงไม่พับ
+  const neighbours = () => {
+    const nodes = [...view.childNodes];
+    const keep = state[keyName];
+    const html = {};
+    [1, -1].forEach((d) => {
+      if (stepPeriod(kind, d)) html[d] = view.innerHTML;
+      state[keyName] = keep;
+    });
+    view.replaceChildren(...nodes);
+    return html;
+  };
+
+  const lift = () => {
+    const html = neighbours();
+    const top = document.createElement('div');
+    top.className = 'swipe-top';
+    top.append(...view.childNodes);
+    const under = document.createElement('div');
+    under.className = 'swipe-under';
+    under.setAttribute('aria-hidden', 'true');
+    view.append(under, top);
+    cards = { top, under, html, side: 0, width: view.clientWidth || 1 };
+  };
+
+  const place = (dx) => {
+    const side = dx < 0 ? 1 : -1;
+    if (side !== cards.side) {
+      cards.side = side;
+      cards.under.innerHTML = cards.html[side] || '';
+    }
+    if (!cards.html[side]) { // สุดรอบแล้ว ยืดได้นิดเดียว
+      cards.top.style.transform = `translateX(${(dx * 0.2).toFixed(1)}px)`;
+      cards.under.style.opacity = 0;
+      return;
+    }
+    const p = Math.min(1, Math.abs(dx) / (cards.width * 0.9));
+    cards.top.style.transform = `translateX(${dx.toFixed(1)}px) rotate(${((dx / cards.width) * 3).toFixed(2)}deg) scale(${(1 - p * 0.06).toFixed(3)})`;
+    cards.top.style.setProperty('--p', p.toFixed(3));
+    cards.under.style.transform = `scale(${(0.94 + p * 0.06).toFixed(3)})`;
+    cards.under.style.opacity = Math.min(1, p * 1.6).toFixed(3);
+  };
+
+  const settle = (commit, side) => {
+    busy = true;
+    view.classList.add('swipe-anim');
+    const { top, under } = cards;
+    if (commit) {
+      top.style.transform = `translateX(${(-side * cards.width * 1.15).toFixed(1)}px) rotate(${(-side * 5).toFixed(1)}deg) scale(.92)`;
+      top.style.opacity = 0;
+      under.style.transform = 'none';
+      under.style.opacity = 1;
+    } else {
+      top.style.transform = 'none';
+      top.style.setProperty('--p', 0);
+      under.style.transform = 'scale(.94)';
+      under.style.opacity = 0;
+    }
+    setTimeout(() => {
+      view.classList.remove('swipe-anim');
+      if (commit) stepPeriod(kind, side); // เนื้อหาตรงกับการ์ดด้านหลัง จึงไม่เห็นรอยต่อ
+      else view.replaceChildren(...top.childNodes);
+      cards = null;
+      busy = false;
+    }, DURATION);
+  };
+
   view.addEventListener('pointerdown', (e) => {
-    if (e.button || e.target.closest('.segmented')) return;
-    s = { id: e.pointerId, x: e.clientX, y: e.clientY, on: false, dx: 0 };
+    if (e.button || busy || e.target.closest('.segmented')) return;
+    s = { id: e.pointerId, x: e.clientX, y: e.clientY, t: performance.now(), on: false, dx: 0 };
   });
   view.addEventListener('pointermove', (e) => {
     if (!s || e.pointerId !== s.id) return;
@@ -710,25 +783,28 @@ function swipePeriods(view, kind) {
       if (Math.abs(dy) > 12 && Math.abs(dy) > Math.abs(dx)) { s = null; return; }
       if (Math.abs(dx) < 12) return;
       s.on = true;
-      view.classList.add('swiping');
+      lift();
       try { view.setPointerCapture(e.pointerId); } catch { /* ไม่รองรับก็ปัดได้ */ }
     }
     s.dx = dx;
-    view.style.transform = `translateX(${(dx * 0.35).toFixed(1)}px)`;
+    place(dx);
   });
   view.addEventListener('pointerup', (e) => {
     if (!s || e.pointerId !== s.id) return;
-    const { on, dx } = s;
+    const { on, dx, t: started } = s;
     s = null;
     if (!on) return;
     swallowClick = true;
     setTimeout(() => { swallowClick = false; }, 300);
-    reset();
-    if (Math.abs(dx) < TRIGGER) return;
-    const d = dx < 0 ? 1 : -1;
-    if (stepPeriod(kind, d)) playEnter([view], d);
+    const side = dx < 0 ? 1 : -1;
+    const fast = Math.abs(dx) / Math.max(1, performance.now() - started) > FLICK && Math.abs(dx) > 24;
+    settle(!!cards.html[side] && (Math.abs(dx) > TRIGGER || fast), side);
   });
-  view.addEventListener('pointercancel', () => { s = null; reset(); });
+  view.addEventListener('pointercancel', () => {
+    const on = s?.on;
+    s = null;
+    if (on) settle(false, 0);
+  });
   view.addEventListener('click', (e) => {
     if (swallowClick) { swallowClick = false; e.stopPropagation(); e.preventDefault(); }
   }, true);
