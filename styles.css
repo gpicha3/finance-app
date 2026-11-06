@@ -13,6 +13,7 @@
   --warn: #d98a00; --warn-bg: #fff1c9; --warn-fg: #7a4b00;
   --bad: #d63a30; --bad-bg: #ffe2de; --bad-fg: #9c1f18;
   --tick: #0d3050;
+  --on-accent: #ffffff;
   --c1: #0b72e0; --c2: #0c8f75; --c3: #8250e8; --c4: #e0437a;
   --shadow: 0 6px 20px rgba(15, 100, 160, .1);
   --ease: cubic-bezier(.22, 1, .36, 1);
@@ -56,6 +57,8 @@ svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width:
 @media (display-mode: standalone) {
   @supports (height: 100lvh) {
     .shell, .sheet { bottom: auto; height: 100lvh; }
+    /* ถ้า html/body สั้นกว่า 100lvh iOS จะตัดส่วนล่างของแอปทิ้ง */
+    html, body { min-height: 100lvh; }
   }
 }
 .app-bar {
@@ -214,6 +217,13 @@ button.panel:active { transform: scale(.98); }
 .loan-facts span { color: var(--muted); }
 .loan-facts b { font-weight: 600; }
 
+/* ---------- คำอธิบาย ---------- */
+.help { margin: 0; padding: 2px 16px; }
+.help div { padding: 11px 0; border-top: 1px solid var(--line); }
+.help div:first-child { border-top: 0; }
+.help dt { font-weight: 600; font-size: 15px; }
+.help dd { margin: 1px 0 0; font-size: 14px; color: var(--muted); }
+
 /* ---------- ตั้งค่า ---------- */
 .sheet {
   position: fixed; inset: 0; background: var(--sky); overflow-y: auto; z-index: 10;
@@ -232,6 +242,13 @@ button.panel:active { transform: scale(.98); }
 .segmented { display: flex; background: color-mix(in srgb, var(--panel) 55%, transparent); border-radius: 14px; padding: 3px; }
 .segmented button { flex: 1; text-align: center; padding: 9px 6px; font-size: 15px; border-radius: 11px; color: var(--muted); }
 .segmented button.active { background: var(--panel); color: var(--text); font-weight: 600; box-shadow: 0 1px 3px rgba(10, 50, 80, .18); }
+.palettes { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; padding: 14px 16px; }
+.palette { display: flex; flex-direction: column; align-items: center; gap: 5px; font-size: 13px; color: var(--muted); text-align: center; }
+.palette i { position: relative; display: grid; place-items: center; width: 100%; height: 56px; border-radius: 16px; color: var(--text); box-shadow: inset 0 0 0 1px var(--line); }
+.palette svg { width: 22px; height: 22px; stroke-width: 3; visibility: hidden; }
+.palette.active { color: var(--text); font-weight: 600; }
+.palette.active i { box-shadow: 0 0 0 2px var(--panel), 0 0 0 4px var(--accent); }
+.palette.active svg { visibility: visible; }
 .set-row { display: flex; align-items: center; gap: 12px; padding: 14px 16px; }
 .set-text { flex: 1; min-width: 0; display: flex; flex-direction: column; }
 .set-text small { font-size: 13px; color: var(--muted); overflow-wrap: anywhere; }
@@ -250,7 +267,7 @@ textarea {
 textarea:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
 .btn { flex: 1; min-height: 46px; border-radius: 14px; text-align: center; font-weight: 600; font-size: 15px; }
 .btn:active { opacity: .7; }
-.btn.primary { background: var(--accent); color: #fff; }
+.btn.primary { background: var(--accent); color: var(--on-accent); }
 .btn.ghost { background: var(--panel-2); }
 .btn.danger { background: var(--bad-bg); color: var(--bad-fg); }
 .set-foot { text-align: center; font-size: 12px; color: var(--muted); margin: 18px 0 0; }

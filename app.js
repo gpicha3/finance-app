@@ -1,6 +1,6 @@
 'use strict';
 
-const APP_VERSION = '2026.11.06.4';
+const APP_VERSION = '2026.11.06.5';
 const KEYS = { setup: 'fa.setup', data: 'fa.data', synced: 'fa.synced' };
 
 const $ = (s, el = document) => el.querySelector(s);
@@ -350,6 +350,51 @@ function renderLoans(vm) {
     ${done.length ? `<h3 class="section-title">ผ่อนหมดแล้ว</h3>${done.map((i) => loanCard(i)).join('')}` : ''}`;
 }
 
+/* ---------- คำอธิบายแต่ละหน้า ---------- */
+const HELP = {
+  today: [
+    ['ใช้ได้วันนี้', 'งบที่เหลือหารด้วยจำนวนวันจนถึงวันเงินเดือนเข้า ถ้าใช้วันละเท่านี้ งบจะหมดพอดีวันเงินเดือนเข้า'],
+    ['อีกกี่วันเงินเดือนเข้า', 'นับจากวันนี้ถึงวันที่ 25 ครั้งถัดไป'],
+    ['วงแหวน', 'ส่วนที่มีสีคือยอดที่ใช้ไปเทียบกับงบ 6,400 บาท จะเปลี่ยนเป็นสีแดงเมื่อใช้เกินงบ'],
+    ['ขีดบนวงแหวน', 'แผนถึงวันนี้ คิดจากการใช้งบเท่ากันทุกวันตลอดรอบ ถ้าสีเลยขีดแปลว่าใช้เร็วกว่าแผน'],
+    ['ป้ายเร็วหรือช้ากว่าแผน', 'ยอดที่ใช้ไปลบแผนถึงวันนี้ สีเหลืองคือเร็วกว่าแผน สีเขียวคือช้ากว่าหรือตรงแผน สีแดงคือเกินงบแล้ว'],
+    ['ใช้ไป / เหลือ', 'รายจ่ายทั้งหมดของรอบนี้จากแท็บ Daily Log และงบที่เหลือ'],
+    ['เหลือหลัง Fixed cost', 'รายรับลบรายจ่ายประจำของรอบนี้จากแท็บ Fix cost กดเพื่อดูรายการ'],
+    ['ผ่อนรอบนี้', 'ยอดผ่อนทุกรายการที่อยู่ในรอบนี้รวมกัน กดเพื่อดูรายละเอียด'],
+    ['แถบรายการผ่อน', 'แต่ละแถบบอกว่าจ่ายแล้วกี่งวดจากทั้งหมด งวดจะนับเมื่อเลยวันที่ 25 ของเดือนนั้น'],
+  ],
+  cycles: [
+    ['ชื่อรอบ', 'เรียกตามเดือนที่รอบสิ้นสุด เช่น รอบ พ.ย. คือ 26 ต.ค. ถึง 24 พ.ย. ปุ่มซ้ายขวาใช้ดูรอบอื่น'],
+    ['รายจ่าย / รายรับ', 'ยอดรวมของรอบนี้จากแท็บ Daily Log โดยจัดกลุ่มตามคอลัมน์รอบเงินเดือน'],
+    ['เหลือจากงบ', 'งบ 6,400 บาทลบรายจ่ายของรอบนี้'],
+    ['รายจ่ายตามหมวด', 'ตัวเลขด้านขวาคือยอดรวมของหมวด แถบบอกสัดส่วนเทียบกับรายจ่ายทั้งรอบ'],
+    ['รายการ', 'ชื่อรายการและยอด ส่วนบรรทัดล่างคือวันที่และหมายเหตุ'],
+    ['รายรับในรอบนี้', 'รายการประเภทรายรับใน Daily Log ไม่รวมเงินเดือนที่อยู่ในแท็บ Fix cost'],
+  ],
+  fixed: [
+    ['ชื่อเดือน', 'ตรงกับบล็อกในแท็บ Fix cost เช่น พฤศจิกายน 2026 คือ 25 ต.ค. ถึง 24 พ.ย. ปุ่มซ้ายขวาใช้ดูเดือนอื่น รวมเดือนอนาคตที่ใส่ไว้แล้ว'],
+    ['เงินเหลือ', 'รายรับลบยอดรวมของเดือนนั้น'],
+    ['รายการ', 'รายจ่ายประจำตามที่อยู่ในชีต'],
+    ['ยังไม่ระบุ', 'ช่องในชีตยังว่าง ยอดรวมจึงยังไม่นับรายการนั้น ไม่ได้หมายความว่าเป็น 0 บาท'],
+  ],
+  loans: [
+    ['ยอดผ่อนรวมต่อเดือนตอนนี้', 'ผลรวมงวดของทุกรายการที่อยู่ในรอบนี้ ตรงกับรายการผ่อนในบล็อก Fix cost'],
+    ['กราฟขั้นบันได', 'ยอดผ่อนต่อเดือนตามเวลา แต่ละขั้นคือเดือนที่ยอดเปลี่ยน'],
+    ['รายการเดือนที่ยอดเปลี่ยน', 'บอกว่าเดือนไหนยอดลดหรือเพิ่มเท่าไร เพราะรายการใด และเหลือยอดต่อเดือนเท่าไร'],
+    ['เปอร์เซ็นต์และหลอด', 'จำนวนงวดที่จ่ายแล้วเทียบกับทั้งหมด'],
+    ['ยอดเต็ม', 'ค่างวดคูณจำนวนงวด ไม่รวมเงินดาวน์'],
+    ['ผ่อนมาแล้ว / เหลือ', 'จำนวนงวด จำนวนเดือน และยอดเงิน งวดนับว่าจ่ายแล้วเมื่อเลยวันที่ 25 ของเดือนนั้น'],
+    ['งวดถัดไปตัด', 'วันครบกำหนดของงวดที่ยังไม่นับ'],
+    ['เดือนที่ผ่อนหมด', 'เดือนของงวดสุดท้าย'],
+    ['ผ่อนหมดแล้ว', 'รายการที่จ่ายครบทุกงวดจะย้ายมาอยู่ส่วนนี้ท้ายหน้า'],
+  ],
+};
+
+function initHelp() {
+  $('#helpTitle').textContent = `${TITLES[state.tab]} คืออะไร`;
+  $('#helpBody').innerHTML = HELP[state.tab].map(([k, v]) => `<div><dt>${esc(k)}</dt><dd>${esc(v)}</dd></div>`).join('');
+}
+
 function showTab(name) {
   state.tab = name;
   $$('#tabs [data-tab]').forEach((b) => {
@@ -369,7 +414,7 @@ function render() {
   renderCycles(vm);
   renderFixed(vm);
   renderLoans(vm);
-  $('#pageSub').textContent = state.tab === 'today' && state.data ? `${Calc.cycleName(vm.key)} · ${cycleRange(vm.current)}` : '';
+  $('#pageSub').textContent = state.tab === 'today' && state.data ? `${Calc.cycleName(vm.key)} · ${Calc.fmtDayMonth(vm.current.start)} – ${Calc.fmtDayMonth(vm.current.end)}` : '';
 }
 
 /* ---------- หน้าตั้งค่า ---------- */
@@ -383,6 +428,7 @@ function open(id) {
   sheet.classList.remove('closing');
   sheet.hidden = false;
   if (id === 'settings') initSettings();
+  if (id === 'help') initHelp();
   sheet.classList.add('opening');
   stack.push(sheet);
 }
@@ -412,6 +458,12 @@ function parseSetup(text) {
 function renderThemeControls() {
   const theme = loadTheme();
   $$('#themeSeg button').forEach((b) => b.classList.toggle('active', b.dataset.themeMode === theme.mode));
+  const dark = document.documentElement.getAttribute('data-theme') === 'dark'
+    || (theme.mode === 'auto' && matchMedia('(prefers-color-scheme: dark)').matches);
+  $('#palettes').innerHTML = Object.entries(PALETTES).map(([id, p]) => `
+    <button type="button" class="palette${id === theme.palette ? ' active' : ''}" data-palette="${id}" aria-pressed="${id === theme.palette}">
+      <i style="background:${gradientOf(p[dark ? 'dark' : 'light'].g)}"><svg viewBox="0 0 24 24"><path d="M5 12l5 5 9-10"/></svg></i>${esc(p.name)}
+    </button>`).join('');
 }
 
 function renderConnection(editing = false) {
@@ -441,6 +493,12 @@ $('#themeSeg').addEventListener('click', (e) => {
   const b = e.target.closest('[data-theme-mode]');
   if (!b) return;
   saveTheme({ ...loadTheme(), mode: b.dataset.themeMode });
+  renderThemeControls();
+});
+$('#palettes').addEventListener('click', (e) => {
+  const b = e.target.closest('[data-palette]');
+  if (!b) return;
+  saveTheme({ ...loadTheme(), palette: b.dataset.palette });
   renderThemeControls();
 });
 $('#editLinkBtn').addEventListener('click', () => { renderConnection(true); $('#setupInput').focus(); });
