@@ -154,17 +154,17 @@ button.panel:active { transform: scale(.98); }
 .empty-state { text-align: center; color: var(--muted); padding: 48px 16px; }
 
 /* ---------- ตัวละคร ---------- */
-.buddy { position: absolute; top: 8px; right: 6px; width: 86px; display: block; z-index: 1; cursor: pointer; }
+.buddy { position: absolute; top: 12px; right: 10px; width: 68px; display: block; z-index: 1; cursor: pointer; }
 /* หน้าวันนี้: ตัวละครเป็นจุดเด่นกลางวงแหวน */
-.hero .buddy { top: 9%; left: 13%; width: 74%; }
+.hero .buddy { top: 20%; left: 22%; right: auto; width: 56%; }
 .buddy svg { display: block; width: 100%; height: auto; stroke: none; overflow: visible; }
 .b-ground { fill: var(--text); opacity: .12; }
 .t-trunk, .t-branch { fill: none; stroke: #94673f; stroke-linecap: round; }
 .t-trunk { stroke-width: 6; }
 .t-branch { stroke-width: 3; }
-.l0 { fill: var(--accent); }
-.l1 { fill: color-mix(in srgb, var(--accent) 76%, #fff); }
-.l2 { fill: color-mix(in srgb, var(--accent) 80%, #000); }
+.l0 { fill: var(--leaf); }
+.l1 { fill: color-mix(in srgb, var(--leaf) 76%, #fff); }
+.l2 { fill: color-mix(in srgb, var(--leaf) 80%, #000); }
 /* ลมเบา ๆ: ทั้งต้นเอนนิดเดียว ใบแต่ละกลุ่มไหวไม่พร้อมกัน */
 .t-all { transform-origin: 50px 96px; animation: t-lean 5.5s ease-in-out infinite alternate; }
 .t-leaves { transform-origin: 50px 45px; animation: t-flutter 3.4s ease-in-out infinite alternate; }
@@ -184,8 +184,7 @@ button.panel:active { transform: scale(.98); }
 }
 /* ตัวละครอื่น */
 .buddy.poke svg { transform-origin: 50% 96%; animation: b-poke .65s var(--ease); }
-.b-accent { fill: var(--accent); }
-.b-collar { stroke: var(--accent); stroke-width: 4; stroke-linecap: round; }
+.b-collar { stroke: var(--collar); stroke-width: 4; stroke-linecap: round; }
 .b-limb { fill: none; stroke: #f6cfa8; stroke-width: 5.5; stroke-linecap: round; }
 .b-line { fill: none; stroke-width: 2.6; stroke-linecap: round; stroke-linejoin: round; }
 .b-line.thin { stroke-width: 2; }
@@ -223,7 +222,7 @@ button.panel:active { transform: scale(.98); }
 
 /* ---------- หน้าวันนี้ ---------- */
 .hero { padding: 20px 18px 18px; display: flex; flex-direction: column; align-items: center; gap: 10px; }
-.ring { position: relative; width: min(258px, 68vw); aspect-ratio: 1; }
+.ring { position: relative; width: min(232px, 62vw); aspect-ratio: 1; }
 .ring > svg { display: block; width: 100%; height: 100%; transform: rotate(-90deg); stroke-linecap: butt; overflow: visible; }
 .ring > svg circle { fill: none; }
 .ring-track { stroke: var(--hair); stroke-width: 9; }
@@ -305,10 +304,10 @@ button.panel:active { transform: scale(.98); }
 /* ---------- ยอดใหญ่ ---------- */
 .balance { padding: 18px 18px 18px 20px; min-height: 112px; }
 .balance > span:not(.buddy) { font-size: 13px; color: var(--muted); }
-.balance .buddy { top: 50%; margin-top: -43px; }
-.big { font-size: 38px; font-weight: 300; letter-spacing: -.02em; line-height: 1.15; font-variant-numeric: tabular-nums; padding-right: 90px; }
+.balance .buddy { top: 50%; margin-top: -34px; }
+.big { font-size: 38px; font-weight: 300; letter-spacing: -.02em; line-height: 1.15; font-variant-numeric: tabular-nums; padding-right: 76px; }
 .big.bad { color: var(--bad); }
-.equation { margin-top: 3px; font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums; padding-right: 90px; }
+.equation { margin-top: 3px; font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums; padding-right: 76px; }
 .equation.bad { color: var(--bad); }
 
 /* ---------- รายการ ---------- */
@@ -373,7 +372,8 @@ details[open] > :not(summary) { animation: open-in .32s var(--ease); }
 .segmented { display: flex; border-radius: 16px; padding: 3px; }
 .segmented button { flex: 1; text-align: center; padding: 9px 6px; font-size: 15px; border-radius: 12px; color: var(--muted); transition: background .2s; }
 .segmented button.active { background: var(--accent); color: var(--on-accent); font-weight: 600; }
-.palettes { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; padding: 14px 16px; }
+.segmented.locked { opacity: .45; pointer-events: none; }
+.palettes { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; padding: 14px 16px; }
 .palette { display: flex; flex-direction: column; align-items: center; gap: 5px; font-size: 13px; color: var(--muted); text-align: center; }
 .palette i { position: relative; display: grid; place-items: center; width: 100%; height: 56px; border-radius: 16px; color: var(--text); box-shadow: inset 0 0 0 1px var(--hair); }
 .palette svg { width: 22px; height: 22px; stroke-width: 3; visibility: hidden; }

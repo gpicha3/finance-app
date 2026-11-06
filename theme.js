@@ -34,7 +34,45 @@ const PALETTES = {
     light: { g: ['#ffe08a', '#fff1c2', '#fffbe6'], panel: '#ffffff', p2: '#fbf5e2', text: '#3f2c00', muted: '#6f5a24', line: '#f3ead0', track: '#f7eed4', accent: '#a35f00', onA: '#ffffff' },
     dark: { g: ['#3a2c08', '#2a2008', '#2c2610'], panel: '#40320f', p2: '#544216', text: '#fff6dd', muted: '#d6c48d', line: '#54441a', track: '#54441a', accent: '#f0b429', onA: '#2a1f02' },
   },
+  // ขาวและดำล็อกโหมดตามสีของตัวเอง
+  white: {
+    name: 'ขาว', force: 'light', glow: '#c9ccd2',
+    light: { g: ['#ffffff', '#f7f7f8', '#eeeef0'], panel: '#ffffff', p2: '#f2f2f3', text: '#18181b', muted: '#55555c', line: '#e6e6e8', track: '#e9e9ec', accent: '#18181b', onA: '#ffffff', tick: '#8a8a92' },
+  },
+  black: {
+    name: 'ดำ', force: 'dark', glow: '#3b3b42',
+    dark: { g: ['#1c1c1f', '#111113', '#0a0a0b'], panel: '#1c1c1f', p2: '#2a2a2e', text: '#f4f4f5', muted: '#a9a9b2', line: '#303034', track: '#2c2c31', accent: '#f4f4f5', onA: '#111113', tick: '#8a8a92' },
+  },
 };
+
+// สีตัวละคร: โทนเย็นเป็นขาวหรือสามสี โทนร้อนเป็นส้มอ่อน ธีมขาวดำใช้สีตรงข้าม
+const FUR = {
+  white: { fur: '#f6f7fa', fur2: '#d9dee7', patchA: 'transparent', patchB: 'transparent', belly: '#ffffff', inner: '#ffc9cf', ink: '#2a2230', glint: '#ffffff' },
+  calico: { fur: '#f8f6f1', fur2: '#b9794a', patchA: '#b9794a', patchB: '#8f96a3', belly: '#ffffff', inner: '#ffc9cf', ink: '#2a2230', glint: '#ffffff' },
+  orange: { fur: '#f9c48b', fur2: '#eda764', patchA: 'transparent', patchB: 'transparent', belly: '#fff1e0', inner: '#ffb9a8', ink: '#2a2230', glint: '#ffffff' },
+  black: { fur: '#2c2c31', fur2: '#17171a', patchA: 'transparent', patchB: 'transparent', belly: '#44444b', inner: '#6b6b73', ink: '#f4f4f5', glint: '#17171a' },
+};
+const CHARACTERS = {
+  sky: { cat: 'calico', dog: 'white', shirt: '#5aa5e8', umbrella: '#2f6fd0' },
+  mint: { cat: 'white', dog: 'calico', shirt: '#4fbf95', umbrella: '#0f8a63' },
+  lavender: { cat: 'calico', dog: 'white', shirt: '#9d86ea', umbrella: '#6b45d6' },
+  peach: { cat: 'orange', dog: 'orange', shirt: '#f2936a', umbrella: '#d9582a' },
+  pink: { cat: 'orange', dog: 'orange', shirt: '#f27fa8', umbrella: '#d23d7c' },
+  gold: { cat: 'orange', dog: 'orange', shirt: '#e6ae3a', umbrella: '#b67d10' },
+  white: { cat: 'black', dog: 'black', shirt: '#3a3a40', umbrella: '#18181b', leaf: '#a6d98c', collar: '#d9d9de' },
+  black: { cat: 'white', dog: 'white', shirt: '#d7d7dc', umbrella: '#f4f4f5', leaf: '#a6d98c', collar: '#6b6b73' },
+};
+
+function characterVars(id, p) {
+  const c = CHARACTERS[id] || CHARACTERS.sky;
+  const vars = {
+    '--shirt': c.shirt, '--umbrella': c.umbrella, '--leaf': c.leaf || p.accent, '--collar': c.collar || p.accent,
+  };
+  [['cat', c.cat], ['dog', c.dog]].forEach(([pet, name]) => {
+    Object.entries(FUR[name]).forEach(([k, v]) => { vars[`--${pet}-${k}`] = v; });
+  });
+  return vars;
+}
 
 function loadTheme() {
   try { return { mode: 'auto', palette: 'sky', ...JSON.parse(localStorage.getItem(THEME_KEY) || '{}') }; }
@@ -45,9 +83,10 @@ const gradientOf = (g) => `linear-gradient(170deg, ${g[0]} 0%, ${g[1]} 40%, ${g[
 // แสงฟุ้งสีหลักซ้อนบนพื้นไล่สี เพื่อให้กระจกมีสีให้เบลอตอนเนื้อหาเลื่อนผ่าน
 const skyOf = (p, dark) => {
   const a = dark ? 22 : 30;
-  return `radial-gradient(70% 38% at 92% 10%, color-mix(in srgb, ${p.accent} ${a}%, transparent), transparent 72%), `
+  const glow = p.glow || p.accent;
+  return `radial-gradient(70% 38% at 92% 10%, color-mix(in srgb, ${glow} ${a}%, transparent), transparent 72%), `
     + `radial-gradient(80% 42% at 4% 58%, color-mix(in srgb, ${p.g[0]} ${dark ? 90 : 80}%, transparent), transparent 74%), `
-    + `radial-gradient(70% 34% at 88% 96%, color-mix(in srgb, ${p.accent} ${a - 8}%, transparent), transparent 72%), ${gradientOf(p.g)}`;
+    + `radial-gradient(70% 34% at 88% 96%, color-mix(in srgb, ${glow} ${a - 8}%, transparent), transparent 72%), ${gradientOf(p.g)}`;
 };
 const GLASS_LIGHT = {
   '--glass': 'rgba(255,255,255,.56)', '--glass-sheen': 'rgba(255,255,255,.42)', '--glass-edge': 'rgba(255,255,255,.78)',
@@ -62,14 +101,19 @@ const GLASS_DARK = {
 
 function applyTheme(theme) {
   const root = document.documentElement;
-  if (theme.mode === 'auto') root.removeAttribute('data-theme');
-  else root.setAttribute('data-theme', theme.mode);
+  const id = PALETTES[theme.palette] ? theme.palette : 'sky';
+  const palette = PALETTES[id];
+  const mode = palette.force || theme.mode;
+  if (mode === 'auto') root.removeAttribute('data-theme');
+  else root.setAttribute('data-theme', mode);
 
-  const dark = theme.mode === 'dark' || (theme.mode === 'auto' && matchMedia('(prefers-color-scheme: dark)').matches);
-  const p = (PALETTES[theme.palette] || PALETTES.sky)[dark ? 'dark' : 'light'];
+  const dark = mode === 'dark' || (mode === 'auto' && matchMedia('(prefers-color-scheme: dark)').matches);
+  const p = palette[dark ? 'dark' : 'light'];
   const vars = {
-    '--sky': skyOf(p, dark), '--canvas': p.g[2], '--panel': p.panel, '--panel-2': p.p2, '--text': p.text, '--muted': p.muted,
-    '--line': p.line, '--track': p.track, '--accent': p.accent, '--on-accent': p.onA, '--tick': p.text,
+    '--sky': skyOf({ ...p, glow: palette.glow }, dark), '--canvas': p.g[2], '--panel': p.panel, '--panel-2': p.p2, '--text': p.text, '--muted': p.muted,
+    '--line': p.line, '--track': p.track, '--accent': p.accent, '--on-accent': p.onA, '--tick': p.tick || p.text,
+    '--pants': dark ? '#f1f1f3' : '#26262b',
+    ...characterVars(id, p),
     ...(dark ? GLASS_DARK : GLASS_LIGHT),
   };
   Object.entries(vars).forEach(([k, v]) => root.style.setProperty(k, v));

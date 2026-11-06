@@ -1,6 +1,6 @@
 'use strict';
 
-const APP_VERSION = '2026.11.07.6';
+const APP_VERSION = '2026.11.07.7';
 const KEYS = { setup: 'fa.setup', data: 'fa.data', synced: 'fa.synced', buddy: 'fa.buddy' };
 
 const $ = (s, el = document) => el.querySelector(s);
@@ -408,12 +408,14 @@ function parseSetup(text) {
 
 function renderThemeControls() {
   const theme = loadTheme();
-  $$('#themeSeg button').forEach((b) => b.classList.toggle('active', b.dataset.themeMode === theme.mode));
+  const locked = PALETTES[theme.palette]?.force;
+  $('#themeSeg').classList.toggle('locked', !!locked);
+  $$('#themeSeg button').forEach((b) => b.classList.toggle('active', b.dataset.themeMode === (locked || theme.mode)));
   const dark = document.documentElement.getAttribute('data-theme') === 'dark'
     || (theme.mode === 'auto' && matchMedia('(prefers-color-scheme: dark)').matches);
   $('#palettes').innerHTML = Object.entries(PALETTES).map(([id, p]) => `
     <button type="button" class="palette${id === theme.palette ? ' active' : ''}" data-palette="${id}" aria-pressed="${id === theme.palette}">
-      <i style="background:${gradientOf(p[dark ? 'dark' : 'light'].g)}"><svg viewBox="0 0 24 24"><path d="M5 12l5 5 9-10"/></svg></i>${esc(p.name)}
+      <i style="background:${gradientOf((p[dark ? 'dark' : 'light'] || p.light || p.dark).g)}"><svg viewBox="0 0 24 24"><path d="M5 12l5 5 9-10"/></svg></i>${esc(p.name)}
     </button>`).join('');
 }
 
@@ -458,6 +460,7 @@ $('#palettes').addEventListener('click', (e) => {
   if (!b) return;
   saveTheme({ ...loadTheme(), palette: b.dataset.palette });
   renderThemeControls();
+  renderBuddyChoices();
 });
 $('#buddies').addEventListener('click', (e) => {
   const b = e.target.closest('[data-choose]');
