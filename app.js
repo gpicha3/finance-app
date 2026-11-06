@@ -1,6 +1,6 @@
 'use strict';
 
-const APP_VERSION = '2026.11.07.4';
+const APP_VERSION = '2026.11.07.5';
 const KEYS = { setup: 'fa.setup', data: 'fa.data', synced: 'fa.synced' };
 
 const $ = (s, el = document) => el.querySelector(s);
@@ -130,7 +130,9 @@ const bigNum = (n) => { const [w, d] = baht(Math.abs(n)).split('.'); return `${n
 // หลอดน้ำ: น้ำเต็มหลอดไม่ต้องมีผิวน้ำ หลอดว่างไม่มีน้ำ
 const bar = (pct) => {
   const p = Math.max(0, Math.min(100, pct));
-  return `<div class="tube">${p > 0 ? `<i class="${p >= 100 ? 'full' : ''}" style="width:${p.toFixed(1)}%"></i>` : ''}</div>`;
+  if (p <= 0) return '<div class="tube"><div class="tube-in"></div></div>';
+  const w = `width:${p.toFixed(1)}%`;
+  return `<div class="tube"><span class="tube-glow" style="${w}"></span><div class="tube-in"><i class="${p >= 100 ? 'full' : ''}" style="${w}"></i></div></div>`;
 };
 const pager = (id, title, sub, back, hasPrev, hasNext) => `<div class="pager" id="${id}">
   <button class="icon-btn" data-step="-1" aria-label="ก่อนหน้า" ${hasPrev ? '' : 'disabled'}>${CHEV_L}</button>
@@ -191,7 +193,8 @@ function budgetRing(b) {
   const cls = b.left < 0 ? 'bad' : ''; // เร็วกว่าแผนบอกที่ป้ายสถานะ วงเปลี่ยนสีเมื่อเกินงบเท่านั้น
   const used = b.pct > 0 ? `<circle class="ring-fill ${cls}" cx="60" cy="60" r="53" pathLength="100" stroke-dasharray="${b.pct.toFixed(2)} 100"/>` : '';
   const tick = `<circle class="ring-tick" cx="60" cy="60" r="53" pathLength="100" stroke-dasharray="0.7 100" stroke-dashoffset="${(-(b.plannedPct - 0.35)).toFixed(2)}"/>`;
-  return `<svg viewBox="0 0 120 120" role="img" aria-label="ใช้ไป ${baht(b.used)} จากงบ ${baht(b.budget)} แผนถึงวันนี้ ${baht(b.planned)}"><circle class="ring-track" cx="60" cy="60" r="53"/>${used}${tick}</svg>`;
+  const glow = b.pct > 0 ? `<circle class="ring-glow ${cls}" cx="60" cy="60" r="53" pathLength="100" stroke-dasharray="${b.pct.toFixed(2)} 100" filter="url(#ringSoft)"/>` : '';
+  return `<svg viewBox="0 0 120 120" role="img" aria-label="ใช้ไป ${baht(b.used)} จากงบ ${baht(b.budget)} แผนถึงวันนี้ ${baht(b.planned)}"><defs><filter id="ringSoft" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation="2.4"/></filter></defs><circle class="ring-track" cx="60" cy="60" r="53"/>${glow}${used}${tick}</svg>`;
 }
 
 function renderToday(vm) {
@@ -322,8 +325,8 @@ function stepChart(steps) {
   }).join('');
   const dots = steps.map((s, i) => `<circle class="dot ${i ? '' : 'now'}" cx="${x(s).toFixed(1)}" cy="${y(s.amount).toFixed(1)}" r="${i ? 4 : 5.5}"/>`).join('');
   return `<div class="chart"><svg viewBox="0 0 ${W} ${H}" role="img" aria-label="ยอดผ่อนต่อเดือนตามเวลา รายละเอียดอยู่ในรายการเดือนที่ยอดเปลี่ยน">
-    <defs><linearGradient id="waterGrad" x1="0" y1="0" x2="0" y2="1"><stop class="w-top" offset="0"/><stop class="w-low" offset="1"/></linearGradient></defs>
-    <path class="area" d="${area}"/><path class="glow" d="${d}"/><path class="line" d="${d}"/>${dots}${labels}
+    <defs><linearGradient id="waterGrad" x1="0" y1="0" x2="0" y2="1"><stop class="w-top" offset="0"/><stop class="w-low" offset="1"/></linearGradient><filter id="lineSoft" x="-5%" y="-30%" width="110%" height="160%"><feGaussianBlur stdDeviation="3"/></filter></defs>
+    <path class="area" d="${area}"/><path class="glow" d="${d}" filter="url(#lineSoft)"/><path class="line" d="${d}"/><path class="spark" d="${d}" pathLength="100"/>${dots}${labels}
   </svg></div>`;
 }
 
