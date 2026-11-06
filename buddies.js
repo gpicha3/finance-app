@@ -35,35 +35,39 @@ const tear = (x, y) => `<path class="b-tear" d="M${x} ${y}C${x + 3} ${y + 5} ${x
 const HEART = 'M0 2C-1-2-6-2-6 1.5C-6 5-2 7 0 9C2 7 6 5 6 1.5C6-2 1-2 0 2Z';
 const hearts = (a, b) => `<g transform="translate(${a[0]} ${a[1]})"><path class="b-heart" d="${HEART}" fill="#ff7a9c"/></g><g transform="translate(${b[0]} ${b[1]}) scale(.75)"><path class="b-heart h2" d="${HEART}" fill="#ff7a9c"/></g>`;
 
-/* ---------- ต้นไม้: พุ่มเป็นก้อนกลม ลำต้นมีหน้าตาตามอารมณ์ ---------- */
-// เรียงตามลำดับที่เหลืออยู่นานที่สุดก่อน ก้อนเล็กที่ปลายกิ่งจึงเป็นก้อนท้าย ๆ ที่ร่วง
-const PUFFS = [
-  [73, 36, 10], [27, 38, 10], [50, 19, 11], [38, 15, 13], [62, 15, 13], [29, 30, 15], [71, 30, 15], [50, 28, 19],
-  [17, 42, 11], [83, 42, 11], [37, 45, 13], [63, 45, 13], [50, 44, 13], [21, 23, 11], [79, 23, 11],
-];
-const LEAF = 'M0-5C3.4-3 3.4 2 0 5C-3.4 2-3.4-3 0-5Z';
+/* ---------- ต้นไม้: ทรงเดิม เติมมิติด้วยแสงเงาที่ใบ ลำต้น และทั้งพุ่ม ---------- */
+const LEAF = 'M0-5.6C3.8-3.2 3.8 2.2 0 5.6C-3.8 2.2-3.8-3.2 0-5.6Z';
+const LEAF_COUNT = 72;
+// จัดใบแบบเกลียวให้กระจายทั่วพุ่ม และสลับลำดับเพื่อให้ใบที่หายไปกระจายทั่วต้น
+// tone: ด้านล่างขวาของพุ่มเข้ม ด้านบนซ้ายสว่าง เหมือนแสงส่องทรงกลม
+const LEAVES = Array.from({ length: LEAF_COUNT }, (_, n) => {
+  const i = (n * 29) % LEAF_COUNT;
+  const r = Math.sqrt((i + 0.5) / LEAF_COUNT);
+  const t = i * 2.39996;
+  const dx = r * Math.cos(t), dy = r * Math.sin(t);
+  const light = dx * 0.5 + dy * 0.85;
+  return { x: 50 + dx * 38, y: 37 + dy * 30, a: Math.round(i * 47) % 360, tone: light > 0.22 ? 0 : light > -0.3 ? 1 : 2 };
+});
+const leafGradient = (id, stops) => `<radialGradient id="${id}" cx=".38" cy=".3" r=".8">${stops.map(([at, mix]) => `<stop offset="${at}" style="stop-color:${mix}"/>`).join('')}</radialGradient>`;
+const leafMix = (pct, other) => `color-mix(in srgb, var(--leaf) ${pct}%, ${other})`;
 
-function treeArt(mood, leaves) {
+function treeArt(leaves) {
   const id = `shade${uid += 1}`;
-  const count = Math.max(1, Math.round(PUFFS.length * leaves));
-  const puffs = PUFFS.slice(0, count)
-    .map((p, i) => ({ p, i }))
-    .sort((a, b) => a.p[1] - b.p[1]) // ก้อนล่างอยู่หน้า
-    .map(({ p: [x, y, r], i }) => `<g class="t-leaves t${i % 3}"><circle cx="${x}" cy="${y}" r="${r}" class="l${i % 3}"/><circle cx="${x}" cy="${y}" r="${r}" fill="url(#${id})"/></g>`)
-    .join('');
-  const shine = count >= 5 ? gloss(38, 11, 4.6, 2.5) : '';
-  const falling = [[20, 54], [80, 52], [72, 58]].map(([x, y], i) => `<g transform="translate(${x} ${y})"><path class="fall f${i} l${i}" d="${LEAF}"/></g>`).join('');
-  return `${SHADE_DEFS(id)}<ellipse class="b-ground" cx="50" cy="96" rx="24" ry="2.8"/>
+  const shown = LEAVES.slice(0, Math.max(5, Math.round(LEAF_COUNT * leaves)));
+  const tones = [
+    leafGradient(`${id}t0`, [[0, leafMix(92, '#fff')], [0.55, leafMix(80, '#000')], [1, leafMix(60, '#000')]]),
+    leafGradient(`${id}t1`, [[0, leafMix(68, '#fff')], [0.55, 'var(--leaf)'], [1, leafMix(82, '#000')]]),
+    leafGradient(`${id}t2`, [[0, leafMix(36, '#fff')], [0.55, leafMix(72, '#fff')], [1, 'var(--leaf)']]),
+  ].join('');
+  // ชั้นมืดอยู่หลัง ชั้นสว่างอยู่หน้า แต่ละชั้นไหวไม่พร้อมกัน
+  const layers = [0, 1, 2].map((tone) => `<g class="t-leaves t${tone}">${shown.filter((l) => l.tone === tone)
+    .map((l) => `<path d="${LEAF}" fill="url(#${id}t${tone})" transform="translate(${l.x.toFixed(1)} ${l.y.toFixed(1)}) rotate(${l.a})"/>`).join('')}</g>`).join('');
+  const falling = [[66, 52], [38, 56], [74, 44]].map(([x, y], i) => `<g transform="translate(${x} ${y})"><path class="fall f${i}" d="${LEAF}" fill="url(#${id}t${i})"/></g>`).join('');
+  return `${SHADE_DEFS(id)}<defs>${tones}</defs><ellipse class="b-ground" cx="50" cy="96" rx="20" ry="2.6"/>
     <g class="t-all">
-      <path class="t-branch" d="M46 62C38 54 32 46 26 38M54 62C62 54 68 46 74 36M50 56V22"/>
-      ${solid('path', 'd="M38 62C38 54 62 54 62 62C62 76 63 86 68 94C69 96 67 97 65 97H35C33 97 31 96 32 94C37 86 38 76 38 62Z"', '#a9784f', id)}
-      ${puffs}
-      ${shine}
-      ${mood === 'good' ? cheeks(41, 59, 80) : ''}
-      ${eyes(mood, 44, 56, 75)}
-      ${mood === 'bad' ? browsSad(44, 56, 69) : ''}
-      ${mouthAt(mood, 50, 80)}
-      ${mood === 'bad' ? tear(41, 78) : ''}
+      <path class="t-branch" d="M50 70C42 62 36 54 28 46M50 62C58 54 64 48 72 40M50 52C47 44 45 36 44 26"/>
+      ${solid('path', 'd="M43.5 96C46.5 84 47 62 48.2 44H51.8C53 62 53.5 84 56.5 96Z"', '#a9784f', id)}
+      ${layers}
     </g>
     ${falling}`;
 }
@@ -158,6 +162,6 @@ const BUDDY_ART = { person: personArt, cat: catArt, dog: dogArt };
 
 function renderBuddy(kind, leaves) {
   const mood = Calc.moodOf(leaves);
-  const art = BUDDY_ART[kind] ? BUDDY_ART[kind](mood) : treeArt(mood, leaves);
+  const art = BUDDY_ART[kind] ? BUDDY_ART[kind](mood) : treeArt(leaves);
   return `<span class="buddy ${mood}" data-buddy aria-hidden="true"><svg viewBox="0 0 100 100">${art}</svg></span>`;
 }
