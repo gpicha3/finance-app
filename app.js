@@ -1,6 +1,6 @@
 'use strict';
 
-const APP_VERSION = '2026.11.06.3';
+const APP_VERSION = '2026.11.06.4';
 const KEYS = { setup: 'fa.setup', data: 'fa.data', synced: 'fa.synced' };
 
 const $ = (s, el = document) => el.querySelector(s);
@@ -125,7 +125,9 @@ const ICON_UP = '<svg viewBox="0 0 24 24"><path d="M12 19V5M6 11l6-6 6 6"/></svg
 const ICON_ALERT = '<svg viewBox="0 0 24 24"><path d="M12 4v10M12 19v.5"/></svg>';
 const TITLES = { today: 'วันนี้', cycles: 'รอบเงินเดือน', fixed: 'Fixed cost', loans: 'การผ่อน' };
 
-const bar = (pct, extra = '') => `<div class="bar ${extra}"><i style="width:${Math.max(0, Math.min(100, pct)).toFixed(1)}%"></i></div>`;
+const bar = (pct, extra = '', color = '') => `<div class="bar ${extra}"><i class="${color}" style="width:${Math.max(0, Math.min(100, pct)).toFixed(1)}%"></i></div>`;
+// สีตามลำดับรายการในแท็บ Installments ไม่เปลี่ยนเมื่อบางรายการผ่อนหมด รายการที่ 5 เป็นต้นไปใช้สีกลาง
+const loanColor = (items, item) => { const i = items.indexOf(item); return i >= 0 && i < 4 ? `c${i + 1}` : ''; };
 const sum = (label, value, cls = '') => `<div class="sum"><span>${esc(label)}</span><b class="${cls}">${value}</b></div>`;
 const pager = (id, title, sub, tag, hasPrev, hasNext) => `<div class="pager" id="${id}">
   <button class="icon-btn" data-step="-1" aria-label="ก่อนหน้า" ${hasPrev ? '' : 'disabled'}>${CHEV_L}</button>
@@ -155,6 +157,13 @@ function paceStatus(b) {
   return { cls: 'good', icon: ICON_OK, text: b.ahead < 0 ? `ใช้ช้ากว่าแผน ${baht(-b.ahead)}` : 'ใช้ตามแผนพอดี' };
 }
 
+function budgetRing(b) {
+  const cls = b.left < 0 ? 'bad' : ''; // เร็วกว่าแผนบอกที่ป้ายสถานะ วงเปลี่ยนสีเมื่อเกินงบเท่านั้น
+  const used = b.pct > 0 ? `<circle class="ring-fill ${cls}" cx="60" cy="60" r="53" pathLength="100" stroke-dasharray="${b.pct.toFixed(2)} 100"/>` : '';
+  const tick = `<circle class="ring-tick" cx="60" cy="60" r="53" pathLength="100" stroke-dasharray="0.7 100" stroke-dashoffset="${(-(b.plannedPct - 0.35)).toFixed(2)}"/>`;
+  return `<svg viewBox="0 0 120 120" role="img" aria-label="ใช้ไป ${baht(b.used)} จากงบ ${baht(b.budget)} แผนถึงวันนี้ ${baht(b.planned)}"><circle class="ring-track" cx="60" cy="60" r="53"/>${used}${tick}</svg>`;
+}
+
 function renderToday(vm) {
   const el = $('#view-today');
   if (!state.data) {
@@ -166,40 +175,35 @@ function renderToday(vm) {
   const b = Calc.budgetSummary(vm.current, vm.now);
   const [whole, dec] = baht(b.perDay).split('.');
   const st = paceStatus(b);
-  const fillCls = b.left < 0 ? 'bad' : b.ahead > 0 ? 'warn' : '';
   const banner = !state.setup
     ? '<div class="banner">กำลังแสดงข้อมูลตัวอย่าง <button data-open="settings">เชื่อมต่อ Google Sheet</button></div>'
     : state.syncError ? `<div class="banner bad">อัปเดตไม่สำเร็จ (${esc(state.syncError)}) กำลังแสดงข้อมูลล่าสุดที่มี</div>` : '';
   const invalid = vm.current.invalid ? `<p class="hint warn">มี ${vm.current.invalid} แถวในรอบนี้ที่อ่านยอดหรือประเภทไม่ได้ จึงไม่ถูกนับ</p>` : '';
   const blk = vm.block;
-  const active = vm.loans.items.filter((i) => !i.done);
+  const { items } = vm.loans;
+  const active = items.filter((i) => !i.done);
   el.innerHTML = `${banner}
-    <div class="cycle-line"><b>${esc(Calc.cycleName(vm.key))}</b><span>${esc(cycleRange(vm.current))}</span></div>
-    <section class="hero">
-      <div class="hero-label">ใช้ได้วันนี้</div>
-      <div class="hero-value"><span class="hero-num">${whole}</span><span class="hero-dec">.${dec}</span><span class="hero-unit">บาท</span></div>
-      <div class="hero-sub">เฉลี่ยจากงบที่เหลือ ${b.days} วัน เงินเดือนเข้า ${esc(Calc.fmtDate(b.payday))}</div>
-    </section>
-    <div class="status ${st.cls}">${st.icon}<span>${esc(st.text)}</span></div>
-    <div class="meter" role="img" aria-label="ใช้ไป ${baht(b.used)} จากงบ ${baht(b.budget)} แผนถึงวันนี้ ${baht(b.planned)}">
-      <i class="${fillCls}" style="width:${b.pct.toFixed(1)}%"></i><em style="left:${b.plannedPct.toFixed(1)}%"></em>
-    </div>
-    <div class="meter-legend"><span>ใช้ไป<b>${baht(b.used)}</b></span><span>${b.left < 0 ? 'เกิน' : 'เหลือ'}<b>${baht(Math.abs(b.left))}</b></span></div>
-    <div class="meter-note">งบ ${baht(b.budget)} · ขีดคือแผนถึงวันนี้ ${baht(b.planned)}</div>
-    ${invalid}
-    <section class="panel">
-      <button class="row" data-goto="fixed" data-fix="${vm.fixYm}">
-        <span class="row-text"><span>เงินเหลือหลัง Fixed cost</span><small>${blk ? `รายรับ ${baht(blk.income)} − ${baht(blk.total)}` : 'ไม่มีบล็อกของเดือนนี้ในแท็บ Fix cost'}</small></span>
-        <span class="row-val">${blk ? baht(blk.balance) : '–'}${CHEV_R}</span>
-      </button>
-      <button class="row" data-goto="loans">
-        <span class="row-text"><span>ผ่อนรอบนี้</span><small>${active.length} รายการ</small></span>
-        <span class="row-val">${baht(vm.loans.now)}${CHEV_R}</span>
-      </button>
-      <div class="mini-wrap">
-        ${active.map((i) => `<div class="mini"><b>${esc(i.name)}</b><span>${i.paid}/${i.totalMonths} งวด</span>${bar(i.pct)}</div>`).join('')}
+    <section class="panel hero">
+      <div class="ring">
+        ${budgetRing(b)}
+        <div class="ring-in">
+          <span>ใช้ได้วันนี้</span>
+          <div class="num ${whole.length > 3 ? 'long' : ''}">${whole}<i>.${dec}</i></div>
+          <span>อีก ${b.days} วันเงินเดือนเข้า</span>
+        </div>
       </div>
-    </section>`;
+      <div class="status ${st.cls}">${st.icon}<span>${esc(st.text)}</span></div>
+      <div class="used-left"><span>ใช้ไป <b>${baht(b.used)}</b></span><span>${b.left < 0 ? 'เกิน' : 'เหลือ'} <b>${baht(Math.abs(b.left))}</b></span></div>
+      <div class="ring-note">งบ ${baht(b.budget)} · ขีดบนวงคือแผนถึงวันนี้ ${baht(b.planned)}</div>
+    </section>
+    ${invalid}
+    <div class="pair">
+      <button class="panel tile" data-goto="fixed" data-fix="${vm.fixYm}"><span>เหลือหลัง Fixed cost</span><b class="${blk && blk.balance < 0 ? 'bad' : ''}">${blk ? baht(blk.balance) : '–'}</b></button>
+      <button class="panel tile" data-goto="loans"><span>ผ่อนรอบนี้</span><b>${baht(vm.loans.now)}</b></button>
+    </div>
+    ${active.length ? `<button class="panel mini-grid" data-goto="loans">
+      ${active.map((i) => `<span class="mini"><b>${esc(i.name)}</b><span>${i.paid}/${i.totalMonths}</span>${bar(i.pct, '', loanColor(items, i))}</span>`).join('')}
+    </button>` : ''}`;
 }
 
 /* ---------- รอบเงินเดือน ---------- */
@@ -296,7 +300,7 @@ function stepChart(steps) {
   </svg></div>`;
 }
 
-function loanCard(i) {
+function loanCard(i, color) {
   if (i.done) {
     return `<section class="panel loan">
       <div class="loan-head"><h2>${esc(i.name)}</h2><span>ครบ ${i.totalMonths} งวด</span></div>
@@ -306,7 +310,7 @@ function loanCard(i) {
   return `<section class="panel loan">
     <div class="loan-head"><h2>${esc(i.name)}</h2><span>${Math.round(i.pct)}%</span></div>
     <div class="loan-sub">${baht(i.monthly)} × ${i.totalMonths} งวด = ${baht(i.fullAmount)}</div>
-    ${bar(i.pct, 'thick')}
+    ${bar(i.pct, 'thick', color)}
     <div class="loan-cols">
       <div class="loan-col"><h3>ผ่อนมาแล้ว</h3><p><b>${i.paid}</b> งวด · ${i.paid} เดือน</p><small>${baht(i.paidAmount)}</small></div>
       <div class="loan-col"><h3>เหลือ</h3><p><b>${i.left}</b> งวด · อีก ${i.left} เดือน</p><small>${baht(i.leftAmount)}</small></div>
@@ -342,8 +346,8 @@ function renderLoans(vm) {
       ${tl ? `<ul class="tl">${tl}</ul>` : '<p class="empty">ไม่มีการเปลี่ยนแปลงข้างหน้า</p>'}
     </section>
     <h3 class="section-title">กำลังผ่อน</h3>
-    ${active.length ? active.map(loanCard).join('') : '<section class="panel"><p class="empty">ไม่มีรายการที่กำลังผ่อน</p></section>'}
-    ${done.length ? `<h3 class="section-title">ผ่อนหมดแล้ว</h3>${done.map(loanCard).join('')}` : ''}`;
+    ${active.length ? active.map((i) => loanCard(i, loanColor(items, i))).join('') : '<section class="panel"><p class="empty">ไม่มีรายการที่กำลังผ่อน</p></section>'}
+    ${done.length ? `<h3 class="section-title">ผ่อนหมดแล้ว</h3>${done.map((i) => loanCard(i)).join('')}` : ''}`;
 }
 
 function showTab(name) {
@@ -365,6 +369,7 @@ function render() {
   renderCycles(vm);
   renderFixed(vm);
   renderLoans(vm);
+  $('#pageSub').textContent = state.tab === 'today' && state.data ? `${Calc.cycleName(vm.key)} · ${cycleRange(vm.current)}` : '';
 }
 
 /* ---------- หน้าตั้งค่า ---------- */

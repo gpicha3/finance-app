@@ -21,7 +21,7 @@ function applyTheme(theme) {
     meta.name = 'theme-color';
     document.head.appendChild(meta);
   }
-  meta.content = dark ? '#111113' : '#f7f7f5';
+  meta.content = dark ? '#0b2a3f' : '#9fe3ff';
   // iOS อ่านค่านี้ตอนเปิดแอป จึงมีผลเมื่อเปิดแอปใหม่
   const sb = document.querySelector('meta[name="apple-mobile-web-app-status-bar-style"]');
   if (sb) sb.content = dark ? 'black-translucent' : 'default';
