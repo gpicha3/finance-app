@@ -1,6 +1,6 @@
 'use strict';
 
-const APP_VERSION = '2026.11.07.2';
+const APP_VERSION = '2026.11.07.3';
 const KEYS = { setup: 'fa.setup', data: 'fa.data', synced: 'fa.synced' };
 
 const $ = (s, el = document) => el.querySelector(s);
@@ -9,7 +9,6 @@ const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
 const baht = (n) => (Number.isFinite(n) ? n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '–');
 const signed = (n) => `${n > 0 ? '+' : '−'}${baht(Math.abs(n))}`;
-const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 const store = {
   get(key, fallback) {
@@ -102,7 +101,6 @@ function saveData(data) {
 async function sync({ quiet = false } = {}) {
   if (!state.setup || state.loading) return;
   state.loading = true;
-  $('#syncBtn').classList.add('busy');
   try {
     saveData(await apiGet(state.setup));
     if (!quiet) toast('อัปเดตข้อมูลแล้ว');
@@ -112,7 +110,6 @@ async function sync({ quiet = false } = {}) {
     if (!quiet) toast(state.syncError, 3500);
   } finally {
     state.loading = false;
-    $('#syncBtn').classList.remove('busy');
     render();
   }
 }
@@ -124,15 +121,17 @@ const CHEV_D = '<svg class="chev" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></
 const ICON_OK = '<svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>';
 const ICON_UP = '<svg viewBox="0 0 24 24"><path d="M12 19V5M6 11l6-6 6 6"/></svg>';
 const ICON_ALERT = '<svg viewBox="0 0 24 24"><path d="M12 4v10M12 19v.5"/></svg>';
-const TITLES = { today: 'วันนี้', cycles: 'รอบเงินเดือน', fixed: 'Fixed cost', loans: 'การผ่อน' };
+const TITLES = { today: 'วันนี้', cycles: 'รอบเงินเดือน', fixed: 'Fixed cost', loans: 'การผ่อน', settings: 'ตั้งค่า' };
 
 // ตัวเลขสรุปปัดเป็นบาทเต็ม ส่วนรายการใช้ยอดจริง (ไม่แสดง .00)
 const whole = (n) => (Number.isFinite(n) ? Math.round(n).toLocaleString('en-US') : '–');
 const money = (n) => (Number.isInteger(n) ? whole(n) : baht(n));
 const bigNum = (n) => { const [w, d] = baht(Math.abs(n)).split('.'); return `${n < 0 ? '−' : ''}${w}<i>.${d}</i>`; };
-const bar = (pct, color = '') => `<div class="bar"><i class="${color}" style="width:${Math.max(0, Math.min(100, pct)).toFixed(1)}%"></i></div>`;
-// สีตามลำดับรายการในแท็บ Installments ไม่เปลี่ยนเมื่อบางรายการผ่อนหมด รายการที่ 5 เป็นต้นไปใช้สีกลาง
-const loanColor = (items, item) => { const i = items.indexOf(item); return i >= 0 && i < 4 ? `c${i + 1}` : ''; };
+// หลอดน้ำ: น้ำเต็มหลอดไม่ต้องมีผิวน้ำ หลอดว่างไม่มีน้ำ
+const bar = (pct) => {
+  const p = Math.max(0, Math.min(100, pct));
+  return `<div class="tube">${p > 0 ? `<i class="${p >= 100 ? 'full' : ''}" style="width:${p.toFixed(1)}%"></i>` : ''}</div>`;
+};
 const pager = (id, title, sub, back, hasPrev, hasNext) => `<div class="pager" id="${id}">
   <button class="icon-btn" data-step="-1" aria-label="ก่อนหน้า" ${hasPrev ? '' : 'disabled'}>${CHEV_L}</button>
   <div class="pager-title"><b>${esc(title)}</b><small>${esc(sub)}</small></div>
@@ -207,22 +206,22 @@ function renderToday(vm) {
   const over = b.spentToday > b.allowedToday;
   const st = paceStatus(b);
   const banner = !state.setup
-    ? '<div class="banner">ข้อมูลตัวอย่าง <button data-open="settings">เชื่อมต่อ Google Sheet</button></div>'
+    ? '<div class="banner">ข้อมูลตัวอย่าง <button data-tab="settings">เชื่อมต่อ Google Sheet</button></div>'
     : state.syncError ? `<div class="banner bad">อัปเดตไม่สำเร็จ (${esc(state.syncError)}) แสดงข้อมูลล่าสุดที่มี</div>` : '';
   const invalid = vm.current.invalid ? `<p class="hint warn">มี ${vm.current.invalid} แถวที่อ่านไม่ได้ จึงไม่ถูกนับ</p>` : '';
   const blk = vm.block;
   el.innerHTML = `${banner}
     <section class="panel hero">
-      ${tree(b.leaves)}
       <div class="ring">
         ${budgetRing(b)}
-        <div class="ring-in">
-          <span>ใช้วันนี้ / ใช้ได้</span>
-          <div class="num ${whole(b.spentToday).length + whole(b.allowedToday).length > 6 ? 'long' : ''}" aria-label="วันนี้ใช้ไป ${baht(b.spentToday)} จากที่ใช้ได้ ${baht(b.allowedToday)}"><b class="${over ? 'bad' : ''}">${whole(b.spentToday)}</b><i> / ${whole(b.allowedToday)}</i></div>
-        </div>
+        ${tree(b.leaves)}
+      </div>
+      <div class="today-num">
+        <span>ใช้วันนี้ / ใช้ได้</span>
+        <div class="num ${whole(b.spentToday).length + whole(b.allowedToday).length > 7 ? 'long' : ''}" aria-label="วันนี้ใช้ไป ${baht(b.spentToday)} จากที่ใช้ได้ ${baht(b.allowedToday)}"><b class="${over ? 'bad' : ''}">${whole(b.spentToday)}</b><i> / ${whole(b.allowedToday)}</i></div>
       </div>
       <div class="status ${st.cls}">${st.icon}<span>${esc(st.text)}</span></div>
-      <div class="hero-foot">งบรอบนี้${b.left < 0 ? 'เกิน' : 'เหลือ'} ${whole(Math.abs(b.left))} · เงินเข้าอีก ${b.days} วัน</div>
+      <div class="hero-foot">งบรอบนี้${b.left < 0 ? 'เกิน' : 'เหลือ'} ${whole(Math.abs(b.left))}</div>
     </section>
     ${invalid}
     <div class="pair">
@@ -292,42 +291,44 @@ function renderFixed(vm) {
 }
 
 /* ---------- การผ่อน ---------- */
-// กราฟขั้นบันได: ชุดข้อมูลเดียว แกนเดียว ติดป้ายเฉพาะจุดที่ยอดเปลี่ยน รายการตัวเลขอยู่ใต้กราฟ
+// กราฟแท่งน้ำ: แต่ละแท่งคือช่วงเวลาที่ยอดต่อเดือนคงที่ กว้างตามระยะเวลา แท่งแรกคือตอนนี้
+// แท่งสั้นมากจะกว้างขั้นต่ำเพื่อให้อ่านป้ายได้ ตัวเลขละเอียดอยู่ในรายการเดือนที่ยอดเปลี่ยน
 function stepChart(steps) {
   if (steps.length < 2) return '';
-  const W = 340, H = 150, top = 22, bottom = 124, left = 2, right = 338;
+  const W = 340, H = 156, top = 24, base = 128, gap = 4;
   const idx = (ym) => { const [y, m] = ym.split('-').map(Number); return y * 12 + m; };
-  const t0 = idx(steps[0].ym), span = Math.max(1, idx(steps[steps.length - 1].ym) - t0);
-  const max = Math.max(...steps.map((s) => s.amount), 1);
-  const x = (s) => left + ((idx(s.ym) - t0) / span) * (right - left);
-  const y = (a) => bottom - (a / max) * (bottom - top);
-  let d = `M${x(steps[0]).toFixed(1)} ${y(steps[0].amount).toFixed(1)}`;
-  steps.slice(1).forEach((s) => { d += `H${x(s).toFixed(1)}V${y(s.amount).toFixed(1)}`; });
-  const area = `${d}V${bottom}H${left}Z`;
-  const short = (a) => Math.round(a).toLocaleString('en-US');
-  let lastX = -999;
-  const labels = steps.map((s, i) => {
-    const px = x(s);
-    const last = i === steps.length - 1;
-    const anchor = last ? 'end' : 'start';
-    const showDate = last || px - lastX > 52;
-    if (showDate) lastX = px;
-    const vy = Math.max(12, y(s.amount) - 7);
-    return `<text class="val" x="${(last ? right - 8 : px + 3).toFixed(1)}" y="${vy.toFixed(1)}" text-anchor="${anchor}">${short(s.amount)}</text>`
-      + (showDate ? `<text x="${(last ? right : px).toFixed(1)}" y="${H - 8}" text-anchor="${anchor}">${esc(Calc.fmtYm(s.ym))}</text>` : '');
+  const last = steps[steps.length - 1];
+  const cols = (last.amount === 0 ? steps.slice(0, -1) : steps).map((s, i) => ({ ...s, span: steps[i + 1] ? idx(steps[i + 1].ym) - idx(s.ym) : 1 }));
+  const total = cols.reduce((a, c) => a + c.span, 0);
+  const raw = cols.map((c) => Math.max(0.16, c.span / total));
+  const rawSum = raw.reduce((a, b) => a + b, 0);
+  const room = W - gap * (cols.length - 1);
+  const max = Math.max(...cols.map((c) => c.amount), 1);
+  let x = 0;
+  const bars = cols.map((c, i) => {
+    const w = (raw[i] / rawSum) * room;
+    const h = Math.max(6, (c.amount / max) * (base - top));
+    const y = base - h;
+    const r = Math.min(10, h, w / 2);
+    const shape = `<path class="col ${i ? 'later' : ''}" d="M${x.toFixed(1)} ${base}V${(y + r).toFixed(1)}Q${x.toFixed(1)} ${y.toFixed(1)} ${(x + r).toFixed(1)} ${y.toFixed(1)}H${(x + w - r).toFixed(1)}Q${(x + w).toFixed(1)} ${y.toFixed(1)} ${(x + w).toFixed(1)} ${(y + r).toFixed(1)}V${base}Z"/>`;
+    const sheen = h > 12 ? `<rect class="col-sheen" x="${(x + 7).toFixed(1)}" y="${(y + 4).toFixed(1)}" width="${Math.max(0, w - 14).toFixed(1)}" height="3" rx="1.5"/>` : '';
+    const label = `<text class="val" x="${(x + w / 2).toFixed(1)}" y="${(y - 7).toFixed(1)}" text-anchor="middle">${Math.round(c.amount).toLocaleString('en-US')}</text>`;
+    const month = w >= 50 ? `<text x="${(x + 2).toFixed(1)}" y="${H - 11}">${esc(Calc.fmtYm(c.ym))}</text>` : '';
+    x += w + gap;
+    return shape + sheen + label + month;
   }).join('');
-  const dots = steps.map((s) => `<circle class="dot" cx="${x(s).toFixed(1)}" cy="${y(s.amount).toFixed(1)}" r="4"/>`).join('');
+  const end = last.amount === 0 ? `<div class="chart-end">ผ่อนหมดทุกรายการ ${esc(Calc.fmtYm(last.ym))}</div>` : '';
   return `<div class="chart"><svg viewBox="0 0 ${W} ${H}" role="img" aria-label="ยอดผ่อนต่อเดือนตามเวลา รายละเอียดอยู่ในรายการเดือนที่ยอดเปลี่ยน">
-    <line class="grid" x1="${left}" x2="${right}" y1="${bottom}" y2="${bottom}"/>
-    <path class="area" d="${area}"/><path class="line" d="${d}"/>${dots}${labels}
-  </svg></div>`;
+    <defs><linearGradient id="waterGrad" x1="0" y1="0" x2="0" y2="1"><stop class="w-top" offset="0"/><stop class="w-mid" offset=".6"/><stop class="w-low" offset="1"/></linearGradient></defs>
+    ${bars}
+  </svg>${end}</div>`;
 }
 
 const fact = (k, v) => `<div><span>${esc(k)}</span><b>${v}</b></div>`;
 
-function loanRow(i, color) {
+function loanRow(i) {
   return `<details>
-    <summary><span class="row-name">${esc(i.name)}</span><b>${i.paid}/${i.totalMonths}</b>${CHEV_D}${bar(i.pct, color)}<small>${money(i.monthly)} ต่อเดือน · หมด ${esc(Calc.fmtYm(i.endMonth))}</small></summary>
+    <summary><span class="row-name">${esc(i.name)}</span><b>${i.paid}/${i.totalMonths}</b>${CHEV_D}${bar(i.pct)}<small>${money(i.monthly)} ต่อเดือน · หมด ${esc(Calc.fmtYm(i.endMonth))}</small></summary>
     <div class="facts">
       ${fact('ผ่อนแล้ว', money(i.paidAmount))}
       ${fact('เหลือ', money(i.leftAmount))}
@@ -357,7 +358,7 @@ function renderLoans(vm) {
       ${pending.length ? `<div class="equation">ยังไม่รวม ${esc(pending.map((i) => i.name).join(', '))}</div>` : ''}
     </section>
     <section class="panel list">
-      ${active.length ? active.map((i) => loanRow(i, loanColor(items, i))).join('') : '<p class="empty">ไม่มีรายการที่กำลังผ่อน</p>'}
+      ${active.length ? active.map((i) => loanRow(i)).join('') : '<p class="empty">ไม่มีรายการที่กำลังผ่อน</p>'}
     </section>
     <section class="panel list">
       ${stepChart(Calc.installmentSteps(vm.loans, vm.now))}
@@ -369,47 +370,7 @@ function renderLoans(vm) {
     </details></section>` : ''}`;
 }
 
-/* ---------- คำอธิบายแต่ละหน้า ---------- */
-const HELP = {
-  today: [
-    ['ใช้วันนี้ / ใช้ได้', 'ซ้ายคือรายจ่ายของวันนี้จาก Daily Log ขวาคือยอดที่ใช้ได้วันนี้ คิดจากงบที่เหลือตอนเริ่มวันหารวันที่เหลือรวมวันนี้ ยอดขวาจึงไม่ลดระหว่างวัน ตัวซ้ายเป็นสีแดงเมื่อใช้เกิน'],
-    ['วงแหวน', 'ส่วนที่มีสีคือยอดที่ใช้ไปเทียบกับงบ 6,400 บาท จะเปลี่ยนเป็นสีแดงเมื่อใช้เกินงบ'],
-    ['ขีดบนวงแหวน', 'แผนถึงวันนี้ คิดจากงบ × จำนวนวันที่ผ่านมารวมวันนี้ ÷ จำนวนวันทั้งรอบ ถ้าสีเลยขีดแปลว่าใช้เร็วกว่าแผน'],
-    ['ป้ายเร็วหรือช้ากว่าแผน', 'ยอดที่ใช้ไปลบแผนถึงวันนี้ สีเหลืองคือเร็วกว่าแผน สีเขียวคือช้ากว่าหรือตรงแผน สีแดงคือเกินงบแล้ว'],
-    ['งบรอบนี้เหลือ · เงินเข้าอีกกี่วัน', 'งบ 6,400 บาทลบรายจ่ายของรอบนี้ และจำนวนวันจนถึงวันที่ 25 ครั้งถัดไป'],
-    ['เงินเดือนเหลือ', 'รายรับลบทุกรายการในบล็อก Fix cost ของรอบนี้ คือเงินที่เหลือจริงเมื่อจ่ายครบตามแผน กดเพื่อดูรายการ'],
-    ['ผ่อนรอบนี้', 'ยอดผ่อนทุกรายการที่อยู่ในรอบนี้รวมกัน และจำนวนรายการ กดเพื่อดูรายละเอียด'],
-    ['ต้นไม้', 'สีใบตามชุดสีที่เลือก ใบเต็มเมื่อไม่ใช้เร็วกว่าแผน ค่อย ๆ ร่วงเมื่อใช้เร็วกว่าแผน และเกือบหมดต้นเมื่อเกินงบ ทุกหน้าใช้สถานะของรอบปัจจุบัน แตะแล้วใบจะไหว'],
-    ['การปัดเศษ', 'ตัวเลขสรุปปัดเป็นบาทเต็ม ส่วนรายการย่อยแสดงยอดจริง'],
-  ],
-  cycles: [
-    ['ชื่อรอบ', 'เรียกตามเดือนที่รอบสิ้นสุด เช่น รอบ พ.ย. คือ 26 ต.ค. ถึง 24 พ.ย. ปุ่มซ้ายขวาใช้ดูรอบอื่น'],
-    ['ใช้ไป', 'รายจ่ายรวมของรอบนี้จากแท็บ Daily Log โดยจัดกลุ่มตามคอลัมน์รอบเงินเดือน'],
-    ['เหลือจากงบ', 'งบ 6,400 บาทลบรายจ่ายของรอบนี้'],
-    ['รับเพิ่ม', 'รายการประเภทรายรับใน Daily Log ไม่รวมเงินเดือนที่อยู่ในแท็บ Fix cost แสดงเมื่อมีรายการ'],
-    ['หมวด', 'ตัวเลขคือยอดรวมของหมวด แถบบอกสัดส่วนเทียบกับรายจ่ายทั้งรอบ แตะเพื่อดูรายการ วันที่ และหมายเหตุ'],
-  ],
-  fixed: [
-    ['ชื่อเดือน', 'ตรงกับบล็อกในแท็บ Fix cost เช่น พฤศจิกายน 2026 คือ 25 ต.ค. ถึง 24 พ.ย. ปุ่มซ้ายขวาใช้ดูเดือนอื่น รวมเดือนอนาคตที่ใส่ไว้แล้ว'],
-    ['เงินเหลือ', 'รายรับลบยอดรวมของเดือนนั้น'],
-    ['รายการ', 'รายจ่ายประจำตามที่อยู่ในชีต'],
-    ['ยังไม่ระบุ', 'ช่องในชีตยังว่าง ยอดรวมจึงยังไม่นับรายการนั้น ไม่ได้หมายความว่าเป็น 0 บาท'],
-  ],
-  loans: [
-    ['ผ่อนต่อเดือน', 'ผลรวมงวดของทุกรายการที่อยู่ในรอบนี้ ตรงกับรายการผ่อนในบล็อก Fix cost'],
-    ['แต่ละรายการ', 'ตัวเลขคือจำนวนงวดที่จ่ายแล้วจากทั้งหมด งวดนับว่าจ่ายแล้วเมื่อเลยวันที่ 25 ของเดือนนั้น แตะเพื่อดูยอดที่ผ่อนแล้ว ยอดที่เหลือ ยอดเต็ม และงวดถัดไป'],
-    ['ยอดเต็ม', 'ค่างวดคูณจำนวนงวด ไม่รวมเงินดาวน์'],
-    ['กราฟขั้นบันได', 'ยอดผ่อนต่อเดือนตามเวลา แต่ละขั้นคือเดือนที่ยอดเปลี่ยน'],
-    ['เดือนที่ยอดเปลี่ยน', 'แตะเพื่อดูว่าเดือนไหนยอดเปลี่ยนเท่าไร เพราะรายการใด และเหลือยอดต่อเดือนเท่าไร'],
-    ['ผ่อนหมดแล้ว', 'รายการที่จ่ายครบทุกงวด แตะเพื่อดูรายละเอียด'],
-  ],
-};
-
-function initHelp() {
-  $('#helpTitle').textContent = `${TITLES[state.tab]} คืออะไร`;
-  $('#helpBody').innerHTML = HELP[state.tab].map(([k, v]) => `<div><dt>${esc(k)}</dt><dd>${esc(v)}</dd></div>`).join('');
-}
-
+/* ---------- สลับหน้า ---------- */
 function markTab(name) {
   $('#tabs').style.setProperty('--i', Object.keys(TITLES).indexOf(name));
   $$('#tabs [data-tab]').forEach((b) => {
@@ -419,13 +380,28 @@ function markTab(name) {
   });
 }
 
+let enterTimer;
 function showTab(name) {
+  const names = Object.keys(TITLES);
+  const dir = Math.sign(names.indexOf(name) - names.indexOf(state.tab));
   state.tab = name;
   markTab(name);
   $$('.view').forEach((v) => { v.hidden = v.id !== `view-${name}`; });
   $('#pageTitle').textContent = TITLES[name];
   $('#scroll').scrollTop = 0;
+  if (name === 'settings') initSettings();
   render();
+  if (!dir) return;
+  // ชิ้นส่วนเลื่อนเข้าทีละชิ้นตามทิศทางของแท็บ เอาคลาสออกเพื่อไม่ให้เล่นซ้ำตอน sync
+  const view = $(`#view-${name}`);
+  [view, $('#titles')].forEach((el) => {
+    el.style.setProperty('--dir', dir);
+    el.classList.remove('enter');
+    void el.offsetWidth;
+    el.classList.add('enter');
+  });
+  clearTimeout(enterTimer);
+  enterTimer = setTimeout(() => { $$('.enter').forEach((el) => el.classList.remove('enter')); }, 1100);
 }
 
 function render() {
@@ -435,35 +411,12 @@ function render() {
   renderFixed(vm);
   renderLoans(vm);
   $('#pageSub').textContent = state.tab === 'today' && state.data ? `${Calc.fmtDayMonth(vm.current.start)} – ${Calc.fmtDayMonth(vm.current.end)}` : '';
+  // ป้ายนับวันเงินเข้า: น้ำในป้ายเพิ่มตามวันที่ผ่านไปของรอบ
+  const pay = $('#payday');
+  pay.hidden = !state.data || state.tab === 'settings';
+  $('span', pay).textContent = `เงินเข้าอีก ${vm.budget.days} วัน`;
+  $('i', pay).style.width = `${Math.max(8, vm.budget.plannedPct).toFixed(1)}%`;
 }
-
-/* ---------- หน้าตั้งค่า ---------- */
-const stack = [];
-const topSheet = () => stack[stack.length - 1] || null;
-
-function open(id) {
-  const sheet = $(`#${id}`);
-  if (!sheet || stack.includes(sheet)) return;
-  sheet.scrollTop = 0;
-  sheet.classList.remove('closing');
-  sheet.hidden = false;
-  if (id === 'settings') initSettings();
-  if (id === 'help') initHelp();
-  sheet.classList.add('opening');
-  stack.push(sheet);
-}
-
-function closeTop({ instant = false } = {}) {
-  const sheet = stack.pop();
-  if (!sheet) return;
-  document.activeElement?.blur?.();
-  sheet.classList.remove('opening');
-  const done = () => { sheet.hidden = true; sheet.classList.remove('closing'); sheet.style.transform = ''; };
-  if (instant || reduceMotion) { done(); return; }
-  sheet.classList.add('closing');
-  setTimeout(done, 260);
-}
-function closeSheets() { while (stack.length) closeTop(); }
 
 /* ---------- ตั้งค่า ---------- */
 function parseSetup(text) {
@@ -540,8 +493,7 @@ $('#saveSetupBtn').addEventListener('click', async () => {
     store.set(KEYS.setup, setup);
     saveData(data);
     state.cycleKey = null; state.fixYm = null;
-    closeSheets();
-    render();
+    showTab('today');
     toast('เชื่อมต่อแล้ว');
   } catch (err) {
     status.textContent = err.message === 'unauthorized' ? 'TOKEN ไม่ถูกต้อง' : `เชื่อมต่อไม่สำเร็จ: ${err.message}`;
@@ -555,16 +507,15 @@ $('#clearSetupBtn').addEventListener('click', () => {
   state.setup = null; state.synced = null; state.syncError = null;
   state.data = demoData();
   state.cycleKey = null; state.fixYm = null;
-  closeSheets();
-  render();
+  showTab('today');
 });
 
-/* ---------- gesture: ดึงลงเพื่อรีเฟรช / ปัดจากขอบซ้ายเพื่อปิดหน้าตั้งค่า ---------- */
+/* ---------- gesture: ดึงลงเพื่อรีเฟรช ---------- */
 const PULL_TRIGGER = 70;
 let g = null;
 
 $('#scroll').addEventListener('touchstart', (e) => {
-  if (stack.length || e.touches.length > 1) return;
+  if (e.touches.length > 1) return;
   const tc = e.touches[0];
   g = { y: tc.clientY, x: tc.clientX, mode: null, pull: 0, atTop: $('#scroll').scrollTop <= 0, inner: $('#page') };
 }, { passive: true });
@@ -618,40 +569,6 @@ async function refreshFromPull(inner) {
   resetPull(inner);
 }
 
-// ปัดจากขอบซ้ายเพื่อปิดหน้าตั้งค่า
-let edge = null;
-document.addEventListener('touchstart', (e) => {
-  const sheet = topSheet();
-  const tc = e.touches[0];
-  if (!sheet || tc.clientX > 24) return;
-  edge = { sheet, x: tc.clientX, t: performance.now(), dx: 0, started: false };
-}, { passive: true });
-document.addEventListener('touchmove', (e) => {
-  if (!edge) return;
-  const { sheet } = edge;
-  if (!edge.started) {
-    edge.started = true;
-    sheet.classList.remove('opening');
-    sheet.style.transition = 'none';
-  }
-  edge.dx = Math.max(0, e.touches[0].clientX - edge.x);
-  sheet.style.transform = `translateX(${edge.dx}px)`;
-  e.preventDefault();
-}, { passive: false });
-document.addEventListener('touchend', () => {
-  if (!edge) return;
-  const { sheet, dx, t: t0, started } = edge;
-  edge = null;
-  if (!started) return;
-  sheet.style.transition = 'transform .26s cubic-bezier(.22, 1, .36, 1)';
-  const commit = dx > innerWidth * 0.33 || dx / Math.max(1, performance.now() - t0) > 0.5;
-  sheet.style.transform = commit ? 'translateX(100%)' : '';
-  setTimeout(() => {
-    sheet.style.transition = '';
-    if (commit) closeTop({ instant: true });
-  }, 260);
-});
-
 /* ---------- ลากแถบเมนู: ไฮไลท์ตามนิ้ว ปล่อยที่เมนูไหนก็ไปหน้านั้น ---------- */
 (function initNavDrag() {
   const nav = $('#tabs');
@@ -702,10 +619,23 @@ document.addEventListener('touchend', () => {
 })();
 
 /* ---------- wiring ---------- */
-$('#syncBtn').addEventListener('click', () => {
-  if (state.setup) sync();
-  else toast('ยังไม่ได้เชื่อมต่อ Google Sheet');
-});
+// แถบบนย่อตัวเมื่อเลื่อนลง
+$('#scroll').addEventListener('scroll', (e) => {
+  $('.shell').classList.toggle('scrolled', e.target.scrollTop > 12);
+}, { passive: true });
+
+// การ์ดที่กดขยาย: เลื่อนให้เห็นครบ ไม่โดนแถบเมนูบัง ถ้าสูงเกินจอให้เห็นหัวการ์ดก่อน
+$('#scroll').addEventListener('toggle', (e) => {
+  const el = e.target;
+  if (el.tagName !== 'DETAILS' || !el.open) return;
+  requestAnimationFrame(() => {
+    const r = el.getBoundingClientRect();
+    const bottom = $('#tabs').getBoundingClientRect().top - 14;
+    const top = $('#appBar').getBoundingClientRect().bottom + 6;
+    const dy = Math.min(r.bottom - bottom, r.top - top);
+    if (dy > 0) $('#scroll').scrollBy({ top: dy, behavior: 'smooth' });
+  });
+}, true);
 
 document.addEventListener('click', (e) => {
   const plant = e.target.closest('[data-tree]');
@@ -716,7 +646,6 @@ document.addEventListener('click', (e) => {
     setTimeout(() => plant.classList.remove('rustle'), 800);
     return;
   }
-  if (e.target.closest('[data-close]')) { closeTop(); return; }
   const tab = e.target.closest('[data-tab]');
   if (tab) { showTab(tab.dataset.tab); return; }
   const goto = e.target.closest('[data-goto]');
@@ -725,8 +654,6 @@ document.addEventListener('click', (e) => {
     showTab(goto.dataset.goto);
     return;
   }
-  const opener = e.target.closest('[data-open]');
-  if (opener) { open(opener.dataset.open); return; }
   const step = e.target.closest('[data-step]');
   if (step) {
     const vm = viewModel();

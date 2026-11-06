@@ -13,26 +13,25 @@
   --bad: #d63a30; --bad-bg: #ffe2de; --bad-fg: #9c1f18;
   --tick: #0d3050;
   --on-accent: #ffffff;
-  --c1: #0b72e0; --c2: #0c8f75; --c3: #8250e8; --c4: #e0437a;
   --glass: rgba(255,255,255,.56); --glass-sheen: rgba(255,255,255,.42); --glass-edge: rgba(255,255,255,.78);
   --glass-shadow: 0 10px 30px rgba(20,30,60,.1);
   --nav-bg: rgba(255,255,255,.78); --nav-fg: #3a3a40; --nav-edge: rgba(255,255,255,.9); --nav-shadow: 0 12px 30px rgba(20,30,60,.2);
   --hair: color-mix(in srgb, var(--text) 10%, transparent);
   --ease: cubic-bezier(.22, 1, .36, 1);
+  --bar-pad: 12px;
+  --head: calc(env(safe-area-inset-top) + var(--bar-pad) + 64px);
   color-scheme: light;
 }
 @media (prefers-color-scheme: dark) {
   :root:not([data-theme="light"]) {
     --good: #52d6a3; --good-bg: #123f35; --good-fg: #8df0c8;
     --warn: #f0b64f; --warn-bg: #43341a; --warn-fg: #ffdb95; --bad: #ff8278; --bad-bg: #4a2523; --bad-fg: #ffb6af;
-    --c1: #3f94f0; --c2: #1aa085; --c3: #9a78f0; --c4: #de5487;
     color-scheme: dark;
   }
 }
 :root[data-theme="dark"] {
   --good: #52d6a3; --good-bg: #123f35; --good-fg: #8df0c8;
   --warn: #f0b64f; --warn-bg: #43341a; --warn-fg: #ffdb95; --bad: #ff8278; --bad-bg: #4a2523; --bad-fg: #ffb6af;
-  --c1: #3f94f0; --c2: #1aa085; --c3: #9a78f0; --c4: #de5487;
   color-scheme: dark;
 }
 
@@ -50,7 +49,7 @@ svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width:
 [hidden] { display: none !important; }
 
 /* ---------- กระจก ---------- */
-.panel, .icon-btn, .banner, .segmented, .ptr {
+.panel, .icon-btn, .banner, .segmented, .ptr, .payday {
   background: linear-gradient(180deg, var(--glass-sheen), transparent 46%), var(--glass);
   -webkit-backdrop-filter: blur(22px) saturate(175%); backdrop-filter: blur(22px) saturate(175%);
   border: 1px solid var(--glass-edge);
@@ -59,35 +58,54 @@ svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width:
 
 /* ---------- โครงหน้า ---------- */
 .shell { position: fixed; inset: 0; display: flex; flex-direction: column; background: var(--sky); }
-.app-bar {
-  flex: none; display: flex; align-items: center; gap: 8px; width: 100%; max-width: 640px; margin: 0 auto;
-  padding: calc(env(safe-area-inset-top) + 12px) 16px 12px 22px;
-}
 /* iOS แบบติดตั้งบนหน้าจอโฮม: ความสูงที่ได้บางครั้งไม่รวมขอบล่าง → ใช้ความสูงเต็มจอ (ใน Safari ปกติแถบเมนูจะบังถ้าใช้ค่านี้) */
 @media (display-mode: standalone) {
   @supports (height: 100lvh) {
-    .shell, .sheet { bottom: auto; height: 100lvh; }
+    .shell { bottom: auto; height: 100lvh; }
     /* ถ้า html/body สั้นกว่า 100lvh iOS จะตัดส่วนล่างของแอปทิ้ง */
     html, body { min-height: 100lvh; }
   }
   /* iOS เบลอขอบบนของจอลึกกว่าแถบสถานะ ต้องวางหัวข้อให้พ้นบริเวณนั้น */
-  .app-bar { padding-top: calc(env(safe-area-inset-top) + 32px); }
-  .shell ~ .sheet { padding-top: calc(env(safe-area-inset-top) + 24px); }
+  :root { --bar-pad: 32px; }
 }
+/* แถบบนลอยเหนือเนื้อหา: หัวข้อใหญ่ย่อลงเมื่อเลื่อน และเนื้อหาจางหายใต้กระจกแทนการตัดเป็นเส้น */
+.app-bar {
+  position: absolute; z-index: 4; top: 0; left: 0; right: 0; display: flex; align-items: center; gap: 10px; pointer-events: none;
+  padding: calc(env(safe-area-inset-top) + var(--bar-pad)) max(18px, calc(50% - 302px)) 8px max(22px, calc(50% - 298px));
+}
+.app-bar::before {
+  content: ''; position: absolute; inset: 0 0 -22px; z-index: -1; opacity: 0; transition: opacity .3s;
+  background: color-mix(in srgb, var(--canvas) 62%, transparent);
+  -webkit-backdrop-filter: blur(20px) saturate(170%); backdrop-filter: blur(20px) saturate(170%);
+  -webkit-mask-image: linear-gradient(#000 68%, transparent); mask-image: linear-gradient(#000 68%, transparent);
+}
+.scrolled .app-bar::before { opacity: 1; }
 .titles { flex: 1; min-width: 0; }
-.titles h1 { margin: 0; font-size: 24px; font-weight: 600; line-height: 1.2; }
-.titles small { display: block; font-size: 13px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.titles.enter { animation: title-in .5s var(--ease) both; }
+.titles h1 { margin: 0; font-size: 30px; font-weight: 600; line-height: 1.2; letter-spacing: -.01em; transform-origin: 0 50%; transition: transform .35s var(--ease); }
+.titles small { display: block; font-size: 13px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; transition: opacity .25s; }
 .titles small:empty { display: none; }
+.scrolled .titles h1 { transform: scale(.72); }
+.scrolled .titles small { opacity: 0; }
+@keyframes title-in { from { opacity: 0; transform: translateX(calc(var(--dir, 0) * 22px)); } }
+/* ป้ายนับวันเงินเข้า น้ำในป้ายเพิ่มตามวันที่ผ่านไปของรอบ */
+.payday { position: relative; flex: none; overflow: hidden; border-radius: 99px; padding: 7px 14px; font-size: 12.5px; font-weight: 500; font-variant-numeric: tabular-nums; }
+.payday i { position: absolute; inset: 0 auto 0 0; background: color-mix(in srgb, var(--accent) 26%, transparent); transition: width .6s var(--ease); }
+.payday i::after {
+  content: ''; position: absolute; top: 0; left: 100%; width: 6px; height: 200%; background: color-mix(in srgb, var(--accent) 26%, transparent);
+  -webkit-mask: var(--wave) 0 0 / 6px 16px repeat-y; mask: var(--wave) 0 0 / 6px 16px repeat-y; animation: wave-rise 2.2s linear infinite;
+}
+.payday span { position: relative; }
 .icon-btn { width: 40px; height: 40px; border-radius: 50%; flex: none; display: grid; place-items: center; color: var(--text); transition: transform .15s, opacity .15s; }
 .icon-btn:active { transform: scale(.92); }
 .icon-btn:disabled { opacity: .3; }
 .icon-btn.busy svg, .ptr.loading svg { animation: spin .8s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
-.scroll { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior-y: none; -webkit-overflow-scrolling: touch; }
-.page { max-width: 640px; margin: 0 auto; padding: 4px 16px calc(env(safe-area-inset-bottom) + 104px); transition: transform .3s var(--ease); }
+.scroll { flex: 1; min-height: 0; overflow-x: hidden; overflow-y: auto; overscroll-behavior-y: none; -webkit-overflow-scrolling: touch; }
+.page { max-width: 640px; margin: 0 auto; padding: calc(var(--head) + 8px) 16px calc(env(safe-area-inset-bottom) + 104px); transition: transform .3s var(--ease); }
 .page.pulling { transition: none; }
 .ptr {
-  position: absolute; left: 50%; top: calc(env(safe-area-inset-top) + 60px); z-index: 4; width: 38px; height: 38px; margin-left: -19px;
+  position: absolute; left: 50%; top: var(--head); z-index: 4; width: 38px; height: 38px; margin-left: -19px;
   border-radius: 50%; color: var(--accent); display: grid; place-items: center;
   opacity: 0; transform: translateY(-20px) scale(.6); transition: opacity .2s, transform .3s var(--ease); pointer-events: none;
 }
@@ -97,13 +115,13 @@ svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width:
 .tabs {
   --i: 0;
   position: absolute; z-index: 5; left: 50%; transform: translateX(-50%); width: min(100% - 32px, 608px);
-  bottom: calc(env(safe-area-inset-bottom) + 12px); display: grid; grid-template-columns: repeat(4, minmax(0, 1fr));
+  bottom: calc(env(safe-area-inset-bottom) + 12px); display: grid; grid-template-columns: repeat(5, minmax(0, 1fr));
   background: var(--nav-bg); border: 1px solid var(--nav-edge); border-radius: 30px; padding: 5px;
   -webkit-backdrop-filter: blur(26px) saturate(180%); backdrop-filter: blur(26px) saturate(180%);
   box-shadow: var(--nav-shadow), inset 0 1px 0 var(--nav-edge);
 }
 .tab-glider {
-  position: absolute; top: 5px; bottom: 5px; left: 5px; width: calc((100% - 10px) / 4); border-radius: 24px;
+  position: absolute; top: 5px; bottom: 5px; left: 5px; width: calc((100% - 10px) / 5); border-radius: 24px;
   background: linear-gradient(180deg, rgba(255,255,255,.28), transparent 55%), var(--accent);
   box-shadow: inset 0 1px 0 rgba(255,255,255,.45), 0 3px 10px color-mix(in srgb, var(--accent) 38%, transparent);
   transform: translateX(calc(var(--i) * 100%)); transition: transform .42s cubic-bezier(.3, 1.45, .5, 1);
@@ -137,7 +155,8 @@ button.panel:active { transform: scale(.98); }
 
 /* ---------- ต้นไม้ ---------- */
 .tree { position: absolute; top: 8px; right: 6px; width: 86px; display: block; z-index: 1; cursor: pointer; }
-.hero .tree { width: min(90px, 22vw); }
+/* หน้าวันนี้: ต้นไม้เป็นจุดเด่นกลางวงแหวน */
+.hero .tree { top: 9%; left: 13%; width: 74%; }
 .tree svg { display: block; width: 100%; height: auto; stroke: none; overflow: visible; }
 .t-ground { fill: var(--text); opacity: .12; }
 .t-trunk, .t-branch { fill: none; stroke: #94673f; stroke-linecap: round; }
@@ -167,17 +186,17 @@ button.panel:active { transform: scale(.98); }
 @keyframes t-rustle { 0%, 100% { transform: none; } 20% { transform: rotate(-3.5deg); } 50% { transform: rotate(3deg); } 78% { transform: rotate(-1.4deg); } }
 
 /* ---------- หน้าวันนี้ ---------- */
-.hero { padding: 22px 18px 18px; display: flex; flex-direction: column; align-items: center; gap: 12px; }
-.ring { position: relative; width: min(226px, 62vw); aspect-ratio: 1; }
-.ring svg { display: block; width: 100%; height: 100%; transform: rotate(-90deg); stroke-linecap: butt; }
-.ring circle { fill: none; }
+.hero { padding: 20px 18px 18px; display: flex; flex-direction: column; align-items: center; gap: 10px; }
+.ring { position: relative; width: min(258px, 68vw); aspect-ratio: 1; }
+.ring > svg { display: block; width: 100%; height: 100%; transform: rotate(-90deg); stroke-linecap: butt; }
+.ring > svg circle { fill: none; }
 .ring-track { stroke: var(--hair); stroke-width: 9; }
 .ring-fill { stroke: var(--accent); stroke-width: 9; stroke-linecap: round; }
 .ring-fill.bad { stroke: var(--bad); }
 .ring-tick { stroke: var(--tick); stroke-width: 13; }
-.ring-in { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; }
-.ring-in span { font-size: 13px; color: var(--muted); }
-.num { font-size: min(56px, 15vw); font-weight: 300; letter-spacing: -.03em; line-height: 1.1; font-variant-numeric: tabular-nums; }
+.today-num { text-align: center; line-height: 1.2; }
+.today-num > span { font-size: 13px; color: var(--muted); }
+.num { font-size: min(52px, 14vw); font-weight: 300; letter-spacing: -.03em; line-height: 1.1; font-variant-numeric: tabular-nums; }
 .num.long { font-size: min(42px, 11.5vw); }
 .num b { font-weight: inherit; }
 .num b.bad { color: var(--bad); }
@@ -194,9 +213,38 @@ button.panel:active { transform: scale(.98); }
 .tile b { display: block; font-size: 22px; font-weight: 500; letter-spacing: -.01em; font-variant-numeric: tabular-nums; }
 .tile small { display: block; font-size: 12.5px; color: var(--muted); }
 .tile b.bad { color: var(--bad); }
-.bar { height: 5px; border-radius: 3px; background: var(--hair); overflow: hidden; }
-.bar i { display: block; height: 100%; border-radius: 3px; background: var(--accent); }
-.bar i.c1 { background: var(--c1); } .bar i.c2 { background: var(--c2); } .bar i.c3 { background: var(--c3); } .bar i.c4 { background: var(--c4); }
+/* หลอดน้ำ: ท่อกระจกแนวนอน น้ำมีผิวเป็นคลื่นตรงปลาย และแสงวิ่งเบา ๆ */
+:root { --wave: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 6 16' preserveAspectRatio='none'%3E%3Cpath d='M0 0H2C6 4 6 4 2 8C-1 12-1 12 2 16H0Z'/%3E%3C/svg%3E"); }
+.tube {
+  position: relative; height: 14px; border-radius: 7px; overflow: hidden; background: var(--hair);
+  box-shadow: inset 0 1px 3px color-mix(in srgb, var(--text) 20%, transparent), inset 0 -1px 0 rgba(255,255,255,.35);
+}
+.tube::after { content: ''; position: absolute; top: 2px; left: 6px; right: 6px; height: 3px; border-radius: 2px; background: rgba(255,255,255,.42); pointer-events: none; }
+.tube i {
+  --water: var(--accent); position: absolute; inset: 0 auto 0 0; min-width: 10px; display: block;
+  background: linear-gradient(180deg, color-mix(in srgb, var(--accent) 72%, #fff), var(--accent) 58%, color-mix(in srgb, var(--accent) 82%, #000));
+}
+.tube i::after {
+  content: ''; position: absolute; top: 0; left: calc(100% - .5px); width: 6px; height: 200%; background: var(--accent);
+  -webkit-mask: var(--wave) 0 0 / 6px 14px repeat-y; mask: var(--wave) 0 0 / 6px 14px repeat-y; animation: wave-rise 1.7s linear infinite;
+}
+.tube i.full::after { display: none; }
+.tube i::before {
+  content: ''; position: absolute; top: 0; bottom: 0; left: 0; width: 34px; background: linear-gradient(90deg, transparent, rgba(255,255,255,.3), transparent);
+  animation: water-glint 4.2s ease-in-out infinite;
+}
+.view.enter .tube i { animation: tube-fill .9s var(--ease) both; }
+@keyframes wave-rise { to { transform: translateY(-50%); } }
+@keyframes water-glint { 0% { left: 0; opacity: 0; } 15% { opacity: 1; } 55% { opacity: 1; } 70%, 100% { left: calc(100% - 34px); opacity: 0; } }
+@keyframes tube-fill { from { width: 0; min-width: 0; } }
+
+/* เปลี่ยนหน้า: ชิ้นส่วนเลื่อนเข้าทีละชิ้นตามทิศของแท็บ (ห้ามใส่ opacity ที่ตัวแม่ กระจกจะหยุดเบลอ) */
+.view.enter > * { animation: page-in .52s var(--ease) both; }
+.view.enter > :nth-child(2) { animation-delay: .05s; }
+.view.enter > :nth-child(3) { animation-delay: .1s; }
+.view.enter > :nth-child(4) { animation-delay: .15s; }
+.view.enter > :nth-child(n+5) { animation-delay: .2s; }
+@keyframes page-in { from { opacity: 0; transform: translateX(calc(var(--dir, 0) * 30px)) scale(.985); } }
 
 /* ---------- ปุ่มเลื่อนรอบ ---------- */
 .pager { display: flex; align-items: center; gap: 4px; margin-bottom: 12px; }
@@ -233,26 +281,31 @@ button.panel:active { transform: scale(.98); }
 .list summary::-webkit-details-marker { display: none; }
 .row-name { min-width: 0; overflow-wrap: anywhere; }
 .list summary b { font-weight: 500; font-variant-numeric: tabular-nums; white-space: nowrap; }
-.list summary .bar { grid-column: 1 / -1; margin-right: 4px; }
+.list summary .tube { grid-column: 1 / -1; margin: 2px 4px 2px 0; }
 .list summary small { grid-column: 1 / -1; font-size: 13px; color: var(--muted); font-variant-numeric: tabular-nums; }
 .row-name:last-of-type:has(+ .chev) { grid-column: 1 / 3; }
 .chev { width: 16px; height: 16px; color: var(--muted); stroke-width: 2.2; transition: transform .25s var(--ease); }
 details[open] > summary .chev { transform: rotate(180deg); }
 details > .items, details > .tl { border-top: 1px solid var(--hair); }
+details[open] > :not(summary) { animation: open-in .32s var(--ease); }
+@keyframes open-in { from { opacity: 0; transform: translateY(-6px); } }
 .facts { display: grid; gap: 4px; padding: 0 18px 14px; font-size: 14px; font-variant-numeric: tabular-nums; }
 .facts div { display: flex; justify-content: space-between; gap: 12px; }
 .facts span { color: var(--muted); }
 .facts b { font-weight: 500; }
 
 /* ---------- การผ่อน ---------- */
-.chart { padding: 14px 18px 6px; }
+.chart { padding: 14px 16px 8px; }
 .chart svg { display: block; width: 100%; height: auto; stroke: none; }
-.chart .grid { stroke: var(--hair); stroke-width: 1; }
-.chart .line { fill: none; stroke: var(--accent); stroke-width: 2; stroke-linecap: butt; stroke-linejoin: round; }
-.chart .area { fill: var(--accent); opacity: .1; }
-.chart .dot { fill: var(--accent); stroke: var(--panel); stroke-width: 2; }
+.w-top { stop-color: color-mix(in srgb, var(--accent) 70%, #fff); }
+.w-mid { stop-color: var(--accent); }
+.w-low { stop-color: color-mix(in srgb, var(--accent) 82%, #000); }
+.chart .col { fill: url(#waterGrad); }
+.chart .col.later { opacity: .55; }
+.chart .col-sheen { fill: #fff; opacity: .4; }
 .chart text { fill: var(--muted); font-size: 11px; font-variant-numeric: tabular-nums; stroke: none; }
 .chart text.val { fill: var(--text); font-weight: 500; }
+.chart-end { font-size: 13px; color: var(--muted); margin-top: -4px; }
 .tl { list-style: none; margin: 0; padding: 0; }
 .tl li { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 1px 12px; padding: 10px 18px; border-top: 1px solid var(--hair); font-variant-numeric: tabular-nums; }
 .tl li:first-child { border-top: 0; }
@@ -261,26 +314,8 @@ details > .items, details > .tl { border-top: 1px solid var(--hair); }
 .tl small { font-size: 13px; color: var(--muted); }
 .tl small:last-child { text-align: right; white-space: nowrap; }
 
-/* ---------- คำอธิบาย ---------- */
-.help { margin: 0; padding: 2px 18px; }
-.help div { padding: 11px 0; border-top: 1px solid var(--hair); }
-.help div:first-child { border-top: 0; }
-.help dt { font-weight: 600; font-size: 15px; }
-.help dd { margin: 1px 0 0; font-size: 14px; color: var(--muted); }
-
 /* ---------- ตั้งค่า ---------- */
-.sheet {
-  position: fixed; inset: 0; background: var(--sky); overflow-y: auto; z-index: 10;
-  padding: env(safe-area-inset-top) 16px calc(24px + env(safe-area-inset-bottom));
-}
-.sheet > * { max-width: 608px; margin-left: auto; margin-right: auto; }
-.sheet.opening { animation: push-in .36s var(--ease) both; }
-.sheet.closing { animation: push-out .26s ease-in both; }
-@keyframes push-in { from { transform: translateX(100%); } }
-@keyframes push-out { to { transform: translateX(100%); } }
-.topbar { display: flex; align-items: center; gap: 8px; padding: 8px 0; }
-.topbar h1 { flex: 1; margin: 0; font-size: 18px; font-weight: 600; text-align: center; }
-.spacer { width: 40px; flex: none; }
+.set-page > .set-title:first-child { margin-top: 0; }
 .set-title { margin: 18px 6px 8px; font-size: 13.5px; font-weight: 600; color: var(--muted); }
 .set-title + .panel { margin-top: 0; }
 .segmented { display: flex; border-radius: 16px; padding: 3px; }
