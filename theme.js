@@ -1,0 +1,61 @@
+'use strict';
+// โหลดใน <head> เพื่อใส่ธีมก่อนหน้าเว็บแสดงผล (ไม่มีจอกะพริบ)
+const ACCENTS = {
+  purple: { name: 'ม่วง', light: '#7a1fe8', dark: '#a76bff' },
+  blue: { name: 'น้ำเงิน', light: '#1d5fd6', dark: '#5b9bff' },
+  teal: { name: 'เขียวน้ำทะเล', light: '#0b7f86', dark: '#3cc6cc' },
+  green: { name: 'เขียว', light: '#1d8348', dark: '#4ccf7f' },
+  orange: { name: 'ส้ม', light: '#d2560b', dark: '#ff9a4d' },
+  red: { name: 'แดง', light: '#c62f3a', dark: '#ff6b74' },
+  pink: { name: 'ชมพู', light: '#c8246e', dark: '#ff6aa8' },
+  graphite: { name: 'กราไฟต์', light: '#3d4451', dark: '#aab3c2' },
+  // ขาว/ดำ: ไอคอนบนพื้นสีนี้ใช้สีตรงข้าม (on) และตัวอักษร/เส้นที่ใช้สีหลักจะสลับเป็นสีที่อ่านออกบนพื้นหลัง (ink)
+  black: { name: 'ดำ', light: '#1c1c1e', dark: '#2c2c2e', onL: '#ffffff', onD: '#ffffff', inkL: '#1c1c1e', inkD: '#f2f2f5' },
+  white: { name: 'ขาว', light: '#ffffff', dark: '#f2f2f5', onL: '#1c1c1e', onD: '#111114', inkL: '#1c1c1e', inkD: '#f2f2f5' },
+};
+const THEME_KEY = 'fa.theme';
+
+function loadTheme() {
+  try { return { mode: 'auto', accent: 'purple', ...JSON.parse(localStorage.getItem(THEME_KEY) || '{}') }; }
+  catch { return { mode: 'auto', accent: 'purple' }; }
+}
+
+function accentOf(theme) {
+  return ACCENTS[theme.accent] || ACCENTS.purple;
+}
+
+function applyTheme(theme) {
+  const root = document.documentElement;
+  const accent = accentOf(theme);
+  if (theme.mode === 'auto') root.removeAttribute('data-theme');
+  else root.setAttribute('data-theme', theme.mode);
+  root.style.setProperty('--accent-l', accent.light);
+  root.style.setProperty('--accent-d', accent.dark);
+  for (const [prop, key] of [['--on-l', 'onL'], ['--on-d', 'onD'], ['--ink-l', 'inkL'], ['--ink-d', 'inkD']]) {
+    if (accent[key]) root.style.setProperty(prop, accent[key]); else root.style.removeProperty(prop);
+  }
+
+  // สีแถบสถานะ/พื้นหลังของระบบให้ตรงกับธีม
+  const dark = theme.mode === 'dark' || (theme.mode === 'auto' && matchMedia('(prefers-color-scheme: dark)').matches);
+  let meta = document.querySelector('meta[name="theme-color"]:not([media])');
+  if (!meta) {
+    document.querySelectorAll('meta[name="theme-color"]').forEach((m) => m.remove());
+    meta = document.createElement('meta');
+    meta.name = 'theme-color';
+    document.head.appendChild(meta);
+  }
+  meta.content = dark ? '#1c1c1e' : '#eeeef1'; // ให้ตรงกับสีพื้นหลังด้านบนของแอป
+  // แถบสถานะ iOS: โหมดมืดให้พื้นหลังแอปต่อขึ้นไปใต้แถบ (ตัวอักษรขาว) / โหมดสว่างใช้แถบปกติ (ตัวอักษรดำ)
+  // iOS อ่านค่านี้ตอนเปิดแอป จึงมีผลเมื่อเปิดแอปใหม่
+  const sb = document.querySelector('meta[name="apple-mobile-web-app-status-bar-style"]');
+  if (sb) sb.content = dark ? 'black-translucent' : 'default';
+  root.classList.toggle('is-dark', dark);
+}
+
+function saveTheme(theme) {
+  try { localStorage.setItem(THEME_KEY, JSON.stringify(theme)); } catch { /* storage unavailable */ }
+  applyTheme(theme);
+}
+
+applyTheme(loadTheme());
+matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => applyTheme(loadTheme()));
