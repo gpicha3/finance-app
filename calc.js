@@ -187,6 +187,22 @@
     return { limit, days, overCount: days.filter((d) => d.over).length, elapsed };
   }
 
+  // กล่องยอดในบัญชี: แถวที่ลงท้ายด้วย "เหลือ" คือบัญชี แถวที่มี "(อยู่ใน X)" คือเงินที่กันไว้ในบัญชี X
+  // บัญชีที่มีเงินกันไว้แสดงก่อน แถวอื่น เช่น ยอดเติมเงิน ไม่นับเป็นบัญชี
+  function accountSummary(rows) {
+    const list = Array.isArray(rows) ? rows : [];
+    const accounts = list
+      .map((r) => ({ label: String(r.label || '').trim(), amount: r.amount }))
+      .filter((r) => r.label.endsWith('เหลือ') && r.label !== 'เหลือ' && Number.isFinite(r.amount))
+      .map((r) => ({ name: r.label.slice(0, -'เหลือ'.length).trim(), amount: r.amount, reserved: [] }));
+    list.forEach((r) => {
+      const m = /^(\S+).*\(อยู่ใน\s*(.+?)\s*\)\s*$/.exec(String(r.label || '').trim());
+      const target = m && accounts.find((a) => a.name === m[2]);
+      if (target && Number.isFinite(r.amount) && r.amount !== 0) target.reserved.push({ name: m[1], amount: r.amount });
+    });
+    return [...accounts.filter((a) => a.reserved.length), ...accounts.filter((a) => !a.reserved.length)];
+  }
+
   // ชื่อรอบตามบล็อก Fix cost เช่น คีย์ 2026-10 = รอบ พ.ย. 2026
   const cycleName = (key) => (lang === 'en' ? `${fmtYm(ymAdd(key, 1))} cycle` : `รอบ ${fmtYm(ymAdd(key, 1))}`);
 
@@ -237,7 +253,7 @@
     round2, parseYmd, ymOf, ymAdd, ymDay, daysBetween,
     fmtDayMonth, fmtDate, fmtYm, fmtYmLong, fmtRange,
     cycleKeyOf, budgetPeriod, fixYmOf, fixPeriod, nextPayday, parseCycleLabel, resolveCycle,
-    buildCycles, budgetSummary, dailyBreakdown, cycleName, setLang, thDayMonth, installmentStatus, installmentSummary,
+    buildCycles, budgetSummary, dailyBreakdown, accountSummary, cycleName, setLang, thDayMonth, installmentStatus, installmentSummary,
   };
   root.Calc = api;
   if (typeof module !== 'undefined' && module.exports) module.exports = api;

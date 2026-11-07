@@ -183,6 +183,24 @@ test('ยอดรายวัน: รวมเฉพาะรายจ่าย
   assert.equal(unknown.days[0].over, false);
 });
 
+test('ยอดบัญชี: นับเฉพาะแถวที่ลงท้ายด้วยเหลือ และผูกเงินที่กันไว้กับบัญชีนั้น', () => {
+  const a = C.accountSummary([
+    { label: 'เติมเงินรอบนี้', amount: 50 },
+    { label: 'ค่าสมาชิก ที่ยังไม่ตัด (อยู่ใน ธนาคาร)', amount: 30 },
+    { label: 'กระเป๋าเหลือ', amount: 10.5 },
+    { label: 'ธนาคาร เหลือ', amount: 100 },
+    { label: 'ไม่มียอดเหลือ', amount: null },
+  ]);
+  assert.deepEqual(a, [
+    { name: 'ธนาคาร', amount: 100, reserved: [{ name: 'ค่าสมาชิก', amount: 30 }] },
+    { name: 'กระเป๋า', amount: 10.5, reserved: [] },
+  ]);
+  // สคริปต์เวอร์ชันเก่ายังไม่ส่งข้อมูลนี้ แอปต้องไม่พัง
+  assert.deepEqual(C.accountSummary(undefined), []);
+  // เงินกันไว้เป็น 0 ไม่ต้องแสดง และบัญชีติดลบยังแสดงได้
+  assert.deepEqual(C.accountSummary([{ label: 'ค่า (อยู่ใน ก)', amount: 0 }, { label: 'กเหลือ', amount: -5 }]), [{ name: 'ก', amount: -5, reserved: [] }]);
+});
+
 test('ชื่อรอบตามบล็อก Fix cost', () => {
   assert.equal(C.cycleName('2026-10'), 'รอบ พ.ย. 2026');
   assert.equal(C.cycleName('2026-12'), 'รอบ ม.ค. 2027');

@@ -1,6 +1,6 @@
 'use strict';
 
-const APP_VERSION = '2026.11.07.17';
+const APP_VERSION = '2026.11.07.18';
 const KEYS = { setup: 'fa.setup', data: 'fa.data', synced: 'fa.synced', buddy: 'fa.buddy', cycleView: 'fa.cycleView' };
 
 const $ = (s, el = document) => el.querySelector(s);
@@ -50,6 +50,10 @@ function demoData() {
       row(key, 26, 'กิน', 'ข้าวเที่ยง', 80), row(key, 27, 'เดินทาง', 'รถไฟฟ้า', 45), row(key, 28, 'ของใช้', 'ของใช้ในบ้าน', 260),
       row(key, 28, 'อื่นๆ', 'คืนเงินเพื่อน', 300, Calc.INCOME),
       row(prev, 27, 'กิน', 'กาแฟ', 65), row(prev, 28, 'เที่ยว', 'ดูหนัง', 240),
+    ],
+    accounts: [
+      { label: 'บัญชี ก เหลือ', amount: 5000.5 }, { label: 'กระเป๋า ข เหลือ', amount: 200 },
+      { label: 'ค่าสมาชิก ที่ยังไม่ตัด (อยู่ใน บัญชี ก)', amount: 150 },
     ],
     installments: [
       { name: 'ตัวอย่าง ก', monthly: 5600, totalMonths: 24, firstMonth: Calc.ymAdd(key, -10), dueDay: 25 },
@@ -183,6 +187,17 @@ function budgetRing(b) {
   return `<svg viewBox="0 0 120 120" role="img" aria-label="${esc(t('ring_aria', moneyText(b.used), moneyText(b.budget), moneyText(b.planned)))}"><defs><filter id="ringSoft" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation="2.4"/></filter></defs><circle class="ring-track" cx="60" cy="60" r="53"/>${glow}${used}${tick}</svg>`;
 }
 
+// ยอดในบัญชีจากกล่องในชีต ถ้าสคริปต์ยังไม่ส่งข้อมูลนี้จะไม่แสดงการ์ด
+function accountCards(rows) {
+  const accounts = Calc.accountSummary(rows);
+  if (!accounts.length) return '';
+  return `<div class="pair accounts">${accounts.map((acc) => `<div class="panel tile">
+    <span>${esc(acc.name)}</span>
+    <b class="${acc.amount < 0 ? 'bad' : ''}">${acc.amount < 0 ? '−' : ''}${baht(Math.abs(acc.amount))}${unit()}</b>
+    ${acc.reserved.map((r) => `<small>${esc(t('includes', r.name, ''))}<span class="nb">${money(r.amount)}</span></small>`).join('')}
+  </div>`).join('')}</div>`;
+}
+
 function renderToday(vm) {
   const el = $('#view-today');
   if (!state.data) {
@@ -213,6 +228,7 @@ function renderToday(vm) {
       <div class="hero-foot">${t(b.left < 0 ? 'budget_over' : 'budget_left', whole(Math.abs(b.left)))}</div>
     </section>
     ${invalid}
+    ${accountCards(state.data.accounts)}
     <div class="pair">
       <button class="panel tile" data-goto="fixed" data-fix="${vm.fixYm}"><span>${t('salary_left')}</span><b class="${blk && blk.balance < 0 ? 'bad' : ''}">${blk ? `${blk.balance < 0 ? '−' : ''}${plain(Math.abs(blk.balance))}${unit()}` : '–'}</b><small>${t('after_fixed')}</small></button>
       <button class="panel tile" data-goto="loans"><span>${t('loans_cycle')}</span><b>${plain(vm.loans.now)}${unit()}</b><small>${t('item_count', vm.loans.items.filter((i) => !i.done).length - vm.loans.pending.length)}</small></button>
