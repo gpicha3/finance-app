@@ -1,7 +1,7 @@
 'use strict';
 
-const APP_VERSION = '2026.11.08.1';
-const KEYS = { setup: 'fa.setup', data: 'fa.data', synced: 'fa.synced', buddy: 'fa.buddy', cycleView: 'fa.cycleView' };
+const APP_VERSION = '2026.11.08.2';
+const KEYS = { setup: 'fa.setup', data: 'fa.data', synced: 'fa.synced', buddy: 'fa.buddy', cycleView: 'fa.cycleView', links: 'fa.links' };
 
 const $ = (s, el = document) => el.querySelector(s);
 const $$ = (s, el = document) => [...el.querySelectorAll(s)];
@@ -74,6 +74,7 @@ const state = {
   tab: 'today',
   buddy: store.get(KEYS.buddy, 'tree'),
   cycleView: store.get(KEYS.cycleView, 'category'),
+  links: store.get(KEYS.links, {}),
 };
 state.data = state.setup ? store.get(KEYS.data, null) : demoData();
 
@@ -191,11 +192,15 @@ function budgetRing(b) {
 function accountCards(rows) {
   const accounts = Calc.accountSummary(rows);
   if (!accounts.length) return '';
-  return `<div class="pair accounts">${accounts.map((acc) => `<div class="panel tile">
-    <span>${esc(acc.name)}</span>
+  return `<div class="pair accounts">${accounts.map((acc) => {
+    const link = state.links[acc.name];
+    const open = link ? ` role="link" tabindex="0" data-open-link="${esc(acc.name)}" aria-label="${esc(t('open_app', acc.name))}"` : '';
+    return `<div class="panel tile${link ? ' linked' : ''}"${open}>
+    <span>${esc(acc.name)}${link ? '<svg class="go" viewBox="0 0 24 24"><path d="M8 16L16 8M9 8h7v7"/></svg>' : ''}</span>
     <b class="${acc.amount < 0 ? 'bad' : ''}">${acc.amount < 0 ? '−' : ''}${baht(Math.abs(acc.amount))}${unit()}</b>
     ${acc.reserved.map((r) => `<small>${esc(t('includes', r.name, ''))}<span class="nb">${money(r.amount)}</span></small>`).join('')}
-  </div>`).join('')}</div>`;
+  </div>`;
+  }).join('')}</div>`;
 }
 
 function renderToday(vm) {
@@ -474,6 +479,28 @@ function renderBuddyChoices() {
   </button>`).join('');
 }
 
+// แสดงลิงก์ที่เข้ารหัสแล้วเป็นภาษาที่อ่านออก ถ้าถอดไม่ได้ให้แสดงตามที่เก็บไว้
+const readableLink = (url) => { if (!url) return ''; try { return decodeURI(url); } catch { return url; } };
+
+// ช่องลิงก์ของแต่ละบัญชีที่อ่านได้จากชีต บันทึกต่อเครื่อง
+function renderLinks() {
+  if (!$('#links')) return;
+  const accounts = Calc.accountSummary(state.data?.accounts);
+  $('#links').innerHTML = accounts.length ? `${accounts.map((acc) => `<label class="field link-row">
+      <span>${esc(acc.name)}</span>
+      <input type="url" inputmode="url" autocomplete="off" autocapitalize="off" spellcheck="false" data-link-for="${esc(acc.name)}" value="${esc(readableLink(state.links[acc.name]))}" placeholder="kplus://">
+    </label>`).join('')}<p class="hint">${esc(t('link_hint'))}</p>`
+    : `<p class="hint">${esc(t('no_accounts_yet'))}</p>`;
+}
+
+function openAccountLink(name) {
+  const url = state.links[name];
+  if (!url) return;
+  // ลิงก์เว็บเปิดนอกแอป ลิงก์ของแอปอื่นให้ iOS ส่งต่อเอง
+  if (/^https?:/i.test(url)) window.open(url, '_blank', 'noopener');
+  else location.href = url;
+}
+
 function renderConnection(editing = false) {
   const connected = !!state.setup;
   $('#connCard').hidden = !connected || editing;
@@ -493,6 +520,7 @@ function initSettings() {
   renderThemeControls();
   markSeg($('#langSeg'), LANG, 'lang');
   renderBuddyChoices();
+  renderLinks();
   renderConnection();
   $('#appVersion').textContent = APP_VERSION;
 }
@@ -526,6 +554,19 @@ $('#buddies').addEventListener('click', (e) => {
   state.buddy = b.dataset.choose;
   store.set(KEYS.buddy, state.buddy);
   renderBuddyChoices();
+  render();
+});
+$('#links')?.addEventListener('change', (e) => { // หน้า HTML เวอร์ชันเก่าอาจยังไม่มีช่องนี้
+  const input = e.target.closest('[data-link-for]');
+  if (!input) return;
+  const url = Calc.normalizeLink(input.value);
+  if (url === null) { input.setCustomValidity(t('bad_link')); input.reportValidity(); toast(t('bad_link'), 3500); return; }
+  input.setCustomValidity('');
+  const links = { ...state.links };
+  if (url) links[input.dataset.linkFor] = url; else delete links[input.dataset.linkFor];
+  state.links = links;
+  store.set(KEYS.links, links);
+  toast(t('link_saved'));
   render();
 });
 $('#editLinkBtn').addEventListener('click', () => { renderConnection(true); $('#setupInput').focus(); });
@@ -851,6 +892,8 @@ document.addEventListener('click', (e) => {
     setTimeout(() => pet.classList.remove(cls), cls === 'bliss' ? 1700 : 800);
     return;
   }
+  const linked = e.target.closest('[data-open-link]');
+  if (linked) { openAccountLink(linked.dataset.openLink); return; }
   const cycleView = e.target.closest('[data-cycle-view]');
   if (cycleView) { pickCycleView(cycleView.dataset.cycleView); return; }
   const tab = e.target.closest('[data-tab]');

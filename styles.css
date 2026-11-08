@@ -251,6 +251,17 @@ button.panel:active { transform: scale(.98); }
 .tile b { display: block; font-size: 22px; font-weight: 500; letter-spacing: -.01em; font-variant-numeric: tabular-nums; }
 .tile small { display: block; font-size: 12.5px; color: var(--muted); }
 .accounts .tile small { font-size: 12px; }
+.tile.linked { cursor: pointer; transition: transform .15s; }
+.tile.linked:active { transform: scale(.97); }
+.tile .go { width: 14px; height: 14px; margin-left: 4px; vertical-align: -2px; color: var(--accent); stroke-width: 2.4; }
+.links { display: grid; gap: 12px; padding: 14px 16px; }
+.links .hint { margin: 0; }
+/* ช่องกรอกต้องใช้ฟอนต์ ≥ 16px ไม่อย่างนั้น iOS ซูมเองตอนแตะ */
+.link-row input {
+  font: 16px ui-monospace, Menlo, monospace; color: var(--text); background: var(--hair); border: 0; border-radius: 12px;
+  padding: 11px 12px; width: 100%; -webkit-appearance: none; appearance: none; -webkit-user-select: text; user-select: text;
+}
+.link-row input:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
 .nb { white-space: nowrap; }
 .tile b.bad { color: var(--bad); }
 /* หลอดน้ำ: ท่อกระจกแนวนอน ปลายน้ำโค้งมน */

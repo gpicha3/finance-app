@@ -203,6 +203,16 @@
     return [...accounts.filter((a) => a.reserved.length), ...accounts.filter((a) => !a.reserved.length)];
   }
 
+  // ลิงก์เปิดแอปธนาคาร: รับลิงก์ตรง (เช่น kplus://) หรือลิงก์ Shortcuts และเข้ารหัสภาษาไทยกับช่องว่างให้
+  // ไม่รับ javascript: และ data: เพราะจะรันโค้ดในแอปแทนการเปิดแอปอื่น ค่าว่างคือไม่ได้ตั้งลิงก์
+  function normalizeLink(text) {
+    const s = String(text || '').trim();
+    if (!s) return '';
+    const m = /^([a-z][a-z0-9+.-]*):/i.exec(s);
+    if (!m || ['javascript', 'data', 'vbscript', 'file'].includes(m[1].toLowerCase())) return null;
+    return /%[0-9a-f]{2}/i.test(s) ? s : encodeURI(s);
+  }
+
   // ชื่อรอบตามบล็อก Fix cost เช่น คีย์ 2026-10 = รอบ พ.ย. 2026
   const cycleName = (key) => (lang === 'en' ? `${fmtYm(ymAdd(key, 1))} cycle` : `รอบ ${fmtYm(ymAdd(key, 1))}`);
 
@@ -253,7 +263,7 @@
     round2, parseYmd, ymOf, ymAdd, ymDay, daysBetween,
     fmtDayMonth, fmtDate, fmtYm, fmtYmLong, fmtRange,
     cycleKeyOf, budgetPeriod, fixYmOf, fixPeriod, nextPayday, parseCycleLabel, resolveCycle,
-    buildCycles, budgetSummary, dailyBreakdown, accountSummary, cycleName, setLang, thDayMonth, installmentStatus, installmentSummary,
+    buildCycles, budgetSummary, dailyBreakdown, accountSummary, normalizeLink, cycleName, setLang, thDayMonth, installmentStatus, installmentSummary,
   };
   root.Calc = api;
   if (typeof module !== 'undefined' && module.exports) module.exports = api;

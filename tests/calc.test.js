@@ -201,6 +201,17 @@ test('ยอดบัญชี: นับเฉพาะแถวที่ลง
   assert.deepEqual(C.accountSummary([{ label: 'ค่า (อยู่ใน ก)', amount: 0 }, { label: 'กเหลือ', amount: -5 }]), [{ name: 'ก', amount: -5, reserved: [] }]);
 });
 
+test('ลิงก์เปิดแอป: รับลิงก์ตรงและ Shortcuts เข้ารหัสภาษาไทยให้ และไม่รับลิงก์ที่รันโค้ด', () => {
+  assert.equal(C.normalizeLink('  kplus://  '), 'kplus://');
+  assert.equal(C.normalizeLink('shortcuts://run-shortcut?name=เปิด K PLUS'), 'shortcuts://run-shortcut?name=%E0%B9%80%E0%B8%9B%E0%B8%B4%E0%B8%94%20K%20PLUS');
+  assert.equal(C.normalizeLink('shortcuts://run-shortcut?name=%E0%B9%80'), 'shortcuts://run-shortcut?name=%E0%B9%80');
+  assert.equal(C.normalizeLink('https://example.com/app'), 'https://example.com/app');
+  assert.equal(C.normalizeLink(''), '');
+  assert.equal(C.normalizeLink('JavaScript:alert(1)'), null);
+  assert.equal(C.normalizeLink('data:text/html,x'), null);
+  assert.equal(C.normalizeLink('ไม่ใช่ลิงก์'), null);
+});
+
 test('ชื่อรอบตามบล็อก Fix cost', () => {
   assert.equal(C.cycleName('2026-10'), 'รอบ พ.ย. 2026');
   assert.equal(C.cycleName('2026-12'), 'รอบ ม.ค. 2027');
