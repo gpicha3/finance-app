@@ -1,6 +1,6 @@
 'use strict';
 
-const APP_VERSION = '2026.11.07.18';
+const APP_VERSION = '2026.11.08.1';
 const KEYS = { setup: 'fa.setup', data: 'fa.data', synced: 'fa.synced', buddy: 'fa.buddy', cycleView: 'fa.cycleView' };
 
 const $ = (s, el = document) => el.querySelector(s);
@@ -710,86 +710,67 @@ function stepPeriod(kind, d) {
   return true;
 }
 
-// ปัดแบบการ์ดซ้อน: หน้าปัจจุบันตามนิ้วและย่อลง รอบถัดไปโผล่จากด้านหลัง ปล่อยแล้วจึงสลับข้อมูลจริง
-function swipePeriods(view, kind) {
-  const TRIGGER = 56;
-  const FLICK = 0.5; // พิกเซลต่อมิลลิวินาที ปัดเร็วแม้ระยะสั้นก็นับ
-  const DURATION = 340;
-  const keyName = kind === 'cycles' ? 'cycleKey' : 'fixYm';
-  let s = null;
-  let cards = null;
-  let busy = false;
-  let swallowClick = false;
+// ตัวเลขที่จางระหว่างรอโหลด และนับขึ้นหลังเปลี่ยนเดือน
+const COUNT_SEL = '.big, .equation, .list summary b, .item-amt, .day-head';
+const NUMBER = /\d[\d,]*(?:\.\d+)?/g;
+const reduceMotion = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-  // เรนเดอร์รอบข้างเคียงเพื่อเอา HTML มาวางด้านหลัง โดยเก็บหน้าปัจจุบันไว้เหมือนเดิม รายการที่กางอยู่จึงไม่พับ
-  const neighbours = () => {
-    const nodes = [...view.childNodes];
-    const keep = state[keyName];
-    const html = {};
-    [1, -1].forEach((d) => {
-      if (stepPeriod(kind, d)) html[d] = view.innerHTML;
-      state[keyName] = keep;
+// นับทุกตัวเลขในข้อความจาก 0 ไปถึงยอดจริง โดยคงรูปแบบเดิม เช่น จุดทศนิยมและเครื่องหมายจุลภาค
+function countUp(root, ms = 650) {
+  if (reduceMotion()) return;
+  const nodes = [];
+  $$(COUNT_SEL, root).forEach((el) => {
+    const walk = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+    for (let n = walk.nextNode(); n; n = walk.nextNode()) {
+      if (n.parentElement.closest('.big i')) continue; // ทศนิยมเล็กและยอดงบคงที่ไม่ต้องนับ
+      if (NUMBER.test(n.nodeValue)) nodes.push({ n, text: n.nodeValue });
+      NUMBER.lastIndex = 0;
+    }
+  });
+  if (!nodes.length) return;
+  const start = performance.now();
+  const frame = (now) => {
+    const k = Math.min(1, (now - start) / ms);
+    const ease = 1 - (1 - k) ** 3;
+    nodes.forEach(({ n, text }) => {
+      n.nodeValue = k >= 1 ? text : text.replace(NUMBER, (m) => {
+        const dec = (m.split('.')[1] || '').length;
+        const v = Number(m.replace(/,/g, '')) * ease;
+        return v.toLocaleString('en-US', { minimumFractionDigits: dec, maximumFractionDigits: dec, useGrouping: m.includes(',') || v >= 1000 });
+      });
     });
-    view.replaceChildren(...nodes);
-    return html;
+    if (k < 1 && !done) requestAnimationFrame(frame);
   };
+  let done = false;
+  requestAnimationFrame(frame);
+  // เฟรมอาจหยุดเมื่อแอปถูกพับ จึงตั้งค่ายอดจริงให้เสมอเมื่อครบเวลา
+  setTimeout(() => { done = true; nodes.forEach(({ n, text }) => { n.nodeValue = text; }); }, ms + 80);
+}
 
-  const lift = () => {
-    const html = neighbours();
-    const top = document.createElement('div');
-    top.className = 'swipe-top';
-    top.append(...view.childNodes);
-    const under = document.createElement('div');
-    under.className = 'swipe-under';
-    under.setAttribute('aria-hidden', 'true');
-    view.append(under, top);
-    cards = { top, under, html, side: 0, width: view.clientWidth || 1 };
+// ปัดเปลี่ยนเดือน: การ์ดอยู่กับที่ เลื่อนเฉพาะชื่อเดือน ลากเกินครึ่งจอตัวเลขจะจางเหมือนกำลังโหลด
+// ปล่อยแล้วชื่อเดือนใหม่เลื่อนเข้ามา และตัวเลขนับขึ้นไปจนถึงยอดใหม่
+function swipePeriods(view, kind) {
+  const FLICK = 0.6; // พิกเซลต่อมิลลิวินาที ปัดเร็วแม้ยังไม่ถึงครึ่งจอก็นับ
+  let s = null;
+  let swallowClick = false;
+  const title = () => $('.pager-title', view);
+  const hasNext = (d) => {
+    const vm = viewModel();
+    if (kind === 'cycles') return !!vm.cycles[vm.cycles.findIndex((c) => c.key === state.cycleKey) - d];
+    return !!vm.blocks[vm.blocks.findIndex((b) => b.ym === state.fixYm) + d];
   };
-
-  const place = (dx) => {
-    const side = dx < 0 ? 1 : -1;
-    if (side !== cards.side) {
-      cards.side = side;
-      cards.under.innerHTML = cards.html[side] || '';
-    }
-    if (!cards.html[side]) { // สุดรอบแล้ว ยืดได้นิดเดียว
-      cards.top.style.transform = `translateX(${(dx * 0.2).toFixed(1)}px)`;
-      cards.under.style.opacity = 0;
-      return;
-    }
-    const p = Math.min(1, Math.abs(dx) / (cards.width * 0.9));
-    cards.top.style.transform = `translateX(${dx.toFixed(1)}px) rotate(${((dx / cards.width) * 3).toFixed(2)}deg) scale(${(1 - p * 0.06).toFixed(3)})`;
-    cards.top.style.setProperty('--p', p.toFixed(3));
-    cards.under.style.transform = `scale(${(0.94 + p * 0.06).toFixed(3)})`;
-    cards.under.style.opacity = Math.min(1, p * 1.6).toFixed(3);
-  };
-
-  const settle = (commit, side) => {
-    busy = true;
-    view.classList.add('swipe-anim');
-    const { top, under } = cards;
-    if (commit) {
-      top.style.transform = `translateX(${(-side * cards.width * 1.15).toFixed(1)}px) rotate(${(-side * 5).toFixed(1)}deg) scale(.92)`;
-      top.style.opacity = 0;
-      under.style.transform = 'none';
-      under.style.opacity = 1;
-    } else {
-      top.style.transform = 'none';
-      top.style.setProperty('--p', 0);
-      under.style.transform = 'scale(.94)';
-      under.style.opacity = 0;
-    }
-    setTimeout(() => {
-      view.classList.remove('swipe-anim');
-      if (commit) stepPeriod(kind, side); // เนื้อหาตรงกับการ์ดด้านหลัง จึงไม่เห็นรอยต่อ
-      else view.replaceChildren(...top.childNodes);
-      cards = null;
-      busy = false;
-    }, DURATION);
+  const reset = () => {
+    view.classList.remove('loading');
+    const el = title();
+    if (!el) return;
+    el.classList.add('pager-back-anim');
+    el.style.transform = '';
+    el.style.opacity = '';
+    setTimeout(() => el.classList.remove('pager-back-anim'), 300);
   };
 
   view.addEventListener('pointerdown', (e) => {
-    if (e.button || busy || e.target.closest('.segmented')) return;
+    if (e.button || e.target.closest('.segmented')) return;
     s = { id: e.pointerId, x: e.clientX, y: e.clientY, t: performance.now(), on: false, dx: 0 };
   });
   view.addEventListener('pointermove', (e) => {
@@ -799,28 +780,38 @@ function swipePeriods(view, kind) {
       if (Math.abs(dy) > 12 && Math.abs(dy) > Math.abs(dx)) { s = null; return; }
       if (Math.abs(dx) < 12) return;
       s.on = true;
-      lift();
+      s.width = view.clientWidth || 1;
+      s.can = { 1: hasNext(1), '-1': hasNext(-1) };
       try { view.setPointerCapture(e.pointerId); } catch { /* ไม่รองรับก็ปัดได้ */ }
     }
     s.dx = dx;
-    place(dx);
+    const d = dx < 0 ? 1 : -1;
+    const ok = s.can[d];
+    const move = ok ? dx : dx * 0.2; // สุดรอบแล้ว ยืดได้นิดเดียว
+    const el = title();
+    el.style.transform = `translateX(${move.toFixed(1)}px)`;
+    el.style.opacity = (1 - Math.min(1, Math.abs(move) / s.width) * 0.7).toFixed(3);
+    s.armed = ok && Math.abs(dx) > s.width / 2;
+    view.classList.toggle('loading', s.armed);
   });
   view.addEventListener('pointerup', (e) => {
     if (!s || e.pointerId !== s.id) return;
-    const { on, dx, t: started } = s;
+    const cur = s;
     s = null;
-    if (!on) return;
+    if (!cur.on) return;
     swallowClick = true;
     setTimeout(() => { swallowClick = false; }, 300);
-    const side = dx < 0 ? 1 : -1;
-    const fast = Math.abs(dx) / Math.max(1, performance.now() - started) > FLICK && Math.abs(dx) > 24;
-    settle(!!cards.html[side] && (Math.abs(dx) > TRIGGER || fast), side);
+    const d = cur.dx < 0 ? 1 : -1;
+    const fast = Math.abs(cur.dx) / Math.max(1, performance.now() - cur.t) > FLICK && Math.abs(cur.dx) > 40;
+    if (!(cur.can[d] && (cur.armed || fast))) { reset(); return; }
+    view.classList.remove('loading');
+    stepPeriod(kind, d);
+    const el = title();
+    el.style.setProperty('--from', `${d * 60}px`);
+    el.classList.add('pager-in');
+    countUp(view);
   });
-  view.addEventListener('pointercancel', () => {
-    const on = s?.on;
-    s = null;
-    if (on) settle(false, 0);
-  });
+  view.addEventListener('pointercancel', () => { if (s?.on) reset(); s = null; });
   view.addEventListener('click', (e) => {
     if (swallowClick) { swallowClick = false; e.stopPropagation(); e.preventDefault(); }
   }, true);
