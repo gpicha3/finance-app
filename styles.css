@@ -319,6 +319,8 @@ button.panel:active { transform: scale(.98); }
 .loading .big { padding-right: 0; }
 .loading :is(.big, .equation, .list summary b, .item-amt, .day-head) * { color: transparent !important; }
 @keyframes skeleton { to { background-position: -200% 0; } }
+.reveal :is(.big, .equation, .list summary b, .item-amt, .day-head) { animation: num-in .32s ease-out; }
+@keyframes num-in { from { opacity: 0; } }
 
 /* ---------- ยอดใหญ่ ---------- */
 .balance { padding: 18px 18px 18px 20px; min-height: 112px; }

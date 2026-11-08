@@ -1,6 +1,6 @@
 'use strict';
 
-const APP_VERSION = '2026.11.08.2';
+const APP_VERSION = '2026.11.08.3';
 const KEYS = { setup: 'fa.setup', data: 'fa.data', synced: 'fa.synced', buddy: 'fa.buddy', cycleView: 'fa.cycleView', links: 'fa.links' };
 
 const $ = (s, el = document) => el.querySelector(s);
@@ -751,45 +751,11 @@ function stepPeriod(kind, d) {
   return true;
 }
 
-// ตัวเลขที่จางระหว่างรอโหลด และนับขึ้นหลังเปลี่ยนเดือน
-const COUNT_SEL = '.big, .equation, .list summary b, .item-amt, .day-head';
-const NUMBER = /\d[\d,]*(?:\.\d+)?/g;
-const reduceMotion = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
-
-// นับทุกตัวเลขในข้อความจาก 0 ไปถึงยอดจริง โดยคงรูปแบบเดิม เช่น จุดทศนิยมและเครื่องหมายจุลภาค
-function countUp(root, ms = 650) {
-  if (reduceMotion()) return;
-  const nodes = [];
-  $$(COUNT_SEL, root).forEach((el) => {
-    const walk = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
-    for (let n = walk.nextNode(); n; n = walk.nextNode()) {
-      if (n.parentElement.closest('.big i')) continue; // ทศนิยมเล็กและยอดงบคงที่ไม่ต้องนับ
-      if (NUMBER.test(n.nodeValue)) nodes.push({ n, text: n.nodeValue });
-      NUMBER.lastIndex = 0;
-    }
-  });
-  if (!nodes.length) return;
-  const start = performance.now();
-  const frame = (now) => {
-    const k = Math.min(1, (now - start) / ms);
-    const ease = 1 - (1 - k) ** 3;
-    nodes.forEach(({ n, text }) => {
-      n.nodeValue = k >= 1 ? text : text.replace(NUMBER, (m) => {
-        const dec = (m.split('.')[1] || '').length;
-        const v = Number(m.replace(/,/g, '')) * ease;
-        return v.toLocaleString('en-US', { minimumFractionDigits: dec, maximumFractionDigits: dec, useGrouping: m.includes(',') || v >= 1000 });
-      });
-    });
-    if (k < 1 && !done) requestAnimationFrame(frame);
-  };
-  let done = false;
-  requestAnimationFrame(frame);
-  // เฟรมอาจหยุดเมื่อแอปถูกพับ จึงตั้งค่ายอดจริงให้เสมอเมื่อครบเวลา
-  setTimeout(() => { done = true; nodes.forEach(({ n, text }) => { n.nodeValue = text; }); }, ms + 80);
-}
+const LOAD_MS = 420; // ตัวเลขเป็นแถบโหลดครู่หนึ่งหลังปล่อยนิ้ว แล้วยอดใหม่ค่อย ๆ ปรากฏ
+let revealTimer;
 
 // ปัดเปลี่ยนเดือน: การ์ดอยู่กับที่ เลื่อนเฉพาะชื่อเดือน ลากเกินครึ่งจอตัวเลขจะจางเหมือนกำลังโหลด
-// ปล่อยแล้วชื่อเดือนใหม่เลื่อนเข้ามา และตัวเลขนับขึ้นไปจนถึงยอดใหม่
+// ปล่อยแล้วชื่อเดือนใหม่เลื่อนเข้ามา ตัวเลขเป็นแถบโหลดครู่หนึ่ง แล้วยอดใหม่ค่อย ๆ ปรากฏ
 function swipePeriods(view, kind) {
   const FLICK = 0.6; // พิกเซลต่อมิลลิวินาที ปัดเร็วแม้ยังไม่ถึงครึ่งจอก็นับ
   let s = null;
@@ -845,12 +811,18 @@ function swipePeriods(view, kind) {
     const d = cur.dx < 0 ? 1 : -1;
     const fast = Math.abs(cur.dx) / Math.max(1, performance.now() - cur.t) > FLICK && Math.abs(cur.dx) > 40;
     if (!(cur.can[d] && (cur.armed || fast))) { reset(); return; }
-    view.classList.remove('loading');
+    view.classList.add('loading');
+    view.classList.remove('reveal');
     stepPeriod(kind, d);
     const el = title();
     el.style.setProperty('--from', `${d * 60}px`);
     el.classList.add('pager-in');
-    countUp(view);
+    clearTimeout(revealTimer);
+    revealTimer = setTimeout(() => {
+      view.classList.remove('loading');
+      view.classList.add('reveal');
+      revealTimer = setTimeout(() => view.classList.remove('reveal'), 400);
+    }, LOAD_MS);
   });
   view.addEventListener('pointercancel', () => { if (s?.on) reset(); s = null; });
   view.addEventListener('click', (e) => {
