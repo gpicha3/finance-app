@@ -1,7 +1,8 @@
 'use strict';
 // ตัวละครบอกสถานะเงิน เป็น SVG + CSS ล้วน (แอนิเมชันอยู่ใน styles.css)
 // ต้นไม้ใช้จำนวนใบตามงบ ตัวอื่นใช้อารมณ์ good / ok / bad จาก Calc.budgetSummary
-const BUDDIES = ['tree', 'person', 'cat', 'dog'];
+// Alpha (แทนตัวละคร "คน" เดิม) ใช้รูปเดิมไม่แก้หน้า บอกสถานะด้วยบรรยากาศ: สีแสง ประกาย เมฆ ฝน
+const BUDDIES = ['tree', 'alpha', 'cat', 'dog'];
 
 /* ---------- สไตล์ดินปั้น 3D: ลงสีพื้นก่อน แล้วซ้อนแสงเงาตามรูปทรง ---------- */
 const INK = '#2a2230';
@@ -73,40 +74,6 @@ function treeArt(leaves) {
     ${falling}`;
 }
 
-/* ---------- คนกับอากาศ: ตัวกลมก้อนเดียว ---------- */
-const CLOUD = (x, y, fill, cls = '') => `<path class="${cls}" d="M${x} ${y}a7 7 0 0 1 7-7a9 9 0 0 1 16-3a7.5 7.5 0 0 1 11 6a5 5 0 0 1 1 10H${x + 3}a6 6 0 0 1-3-6z" fill="${fill}"/>`;
-const SUN = (x, y) => {
-  const rays = Array.from({ length: 8 }, (_, i) => `<path d="M${x} ${y - 13}V${y - 17.5}" transform="rotate(${i * 45} ${x} ${y})"/>`).join('');
-  return `<g class="b-rays" style="transform-origin:${x}px ${y}px" stroke="#f6b73c" stroke-width="2.6" stroke-linecap="round">${rays}</g><circle cx="${x}" cy="${y}" r="10" fill="#f9c83f"/>`;
-};
-function personArt(mood) {
-  const id = `shade${uid += 1}`;
-  const sky = {
-    good: SUN(82, 20),
-    ok: `${SUN(80, 18)}${CLOUD(52, 22, 'color-mix(in srgb, #fff 88%, var(--accent))', 'b-drift')}`,
-    bad: `${CLOUD(26, 11, '#8c94a6')}${[[10, 34], [18, 54], [90, 38], [84, 58], [32, 16], [50, 15], [70, 16]].map(([x, y], i) => `<path class="b-rain r${i % 3}" d="M${x} ${y}l-1.6 6" stroke="#6fa8e6" stroke-width="2" stroke-linecap="round"/>`).join('')}`,
-  }[mood];
-  const umbrella = mood === 'bad' ? `<g transform="rotate(-14 66 78)">
-      <path d="M66 78V32" stroke="#5d5560" stroke-width="2.4" stroke-linecap="round"/>
-      ${solid('path', 'd="M36 34Q66 8 96 34Q88.5 29 81 34Q73.5 29 66 34Q58.5 29 51 34Q43.5 29 36 34Z"', 'var(--umbrella)', id)}
-    </g>` : '';
-  const body = 'x="30" y="38" width="40" height="52" rx="20"';
-  return `${SHADE_DEFS(id)}${sky}<ellipse class="b-ground" cx="50" cy="96" rx="20" ry="2.6"/>
-    <g class="b-person"><g class="b-all ${mood === 'bad' ? 'droop' : ''}">
-      <path d="M41 88V94M59 88V94" style="stroke:var(--pants)" stroke-width="5.5" stroke-linecap="round"/>
-      <rect ${body} fill="#f6cfa8"/>
-      <path d="M30 60C30 44 38 38 50 38C62 38 70 44 70 60C64 50 56 48 48 50C40 51 34 54 30 60Z" fill="#4a3528"/>
-      <path d="M30 74H70V70V78C70 84 62 90 50 90C38 90 30 84 30 78Z" style="fill:var(--shirt)"/>
-      <rect ${body} fill="url(#${id})"/>
-      ${gloss(39, 44, 5, 2.6)}
-      ${mood === 'good' ? cheeks(36, 64, 66) : ''}
-      ${eyes(mood, 41, 59, 62)}
-      ${mood === 'bad' ? browsSad(41, 59, 56) : ''}
-      ${mouthAt(mood, 50, 67)}
-    </g>
-    ${umbrella}</g>`;
-}
-
 /* ---------- แมว ---------- */
 function catArt(mood) {
   const id = `shade${uid += 1}`, clip = `clip${uid}`;
@@ -165,9 +132,24 @@ function dogArt(mood) {
     </g>`;
 }
 
-const BUDDY_ART = { person: personArt, cat: catArt, dog: dogArt };
+const BUDDY_ART = { cat: catArt, dog: dogArt };
+
+/* ---------- Alpha: ตัวละครของหน้า Alpha สื่ออารมณ์ด้วยบรรยากาศ (หน้าและผมคงเดิม) ----------
+   good = แสงเขียวมิ้นต์ + ประกาย · ok = แสงอำพัน + เมฆลอย · bad = แสงแดงหม่น + ฝนตก
+   ความสว่างของแสง = จำนวนใบเดิมของต้นไม้ (leaves) · แตะแล้วมีบับเบิลพูดตามสถานะ */
+function alphaBuddy(leaves, mood) {
+  const lv = Math.max(0.15, Math.min(1, Number(leaves) || 0));
+  const fx = mood === 'good' ? '<i class="sp s1"></i><i class="sp s2"></i><i class="sp s3"></i>'
+    : mood === 'ok' ? '<i class="cloud c1"></i><i class="cloud c2"></i>' : '<i class="rain"></i>';
+  const say = typeof t === 'function' ? t(`alpha_${mood}`) : '';
+  return `<span class="buddy buddy-alpha ${mood}" data-buddy="alpha" style="--lv:${lv.toFixed(2)}" aria-hidden="true">
+    <span class="ba-aura"></span><span class="ba-fx">${fx}</span>
+    <span class="char"><img src="img/alpha-character.png" alt="" draggable="false"><i class="shirt"></i></span>
+    <span class="ba-bubble">${say}</span></span>`;
+}
 
 function renderBuddy(kind, leaves, mood) {
+  if (kind === 'alpha' || kind === 'person') return alphaBuddy(leaves, mood);
   const art = BUDDY_ART[kind] ? BUDDY_ART[kind](mood) : treeArt(leaves);
   return `<span class="buddy ${mood}" data-buddy="${BUDDY_ART[kind] ? kind : 'tree'}" aria-hidden="true"><svg viewBox="0 0 100 100">${art}</svg></span>`;
 }

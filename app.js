@@ -72,7 +72,8 @@ const state = {
   cycleKey: null, // รอบที่กำลังดูในหน้ารอบเงินเดือน
   fixYm: null,    // เดือนที่กำลังดูในหน้า Fixed cost
   tab: 'today',
-  buddy: store.get(KEYS.buddy, 'tree'),
+  // ตัวละคร "คน" เดิมถูกแทนด้วย Alpha (ค่าเก่า 'person' ใช้ต่อได้ ไม่ต้องลบ key)
+  buddy: ((b) => (b === 'person' ? 'alpha' : b))(store.get(KEYS.buddy, 'tree')),
   cycleView: store.get(KEYS.cycleView, 'category'),
   links: store.get(KEYS.links, {}),
 };
@@ -854,12 +855,12 @@ document.addEventListener('click', (e) => {
   if (pet) {
     if (pet.closest('#buddies')) return; // ในหน้าตั้งค่าแตะเพื่อเลือก ไม่ใช่เล่น
     const kind = pet.dataset.buddy;
-    const cls = kind === 'tree' ? 'shake' : kind === 'person' ? 'jump' : 'bliss';
+    const cls = kind === 'tree' ? 'shake' : kind === 'alpha' ? 'talk' : 'bliss';
     pet.classList.remove(cls);
     void pet.offsetWidth;
     pet.classList.add(cls);
     if (kind === 'tree') burstLeaves(pet);
-    setTimeout(() => pet.classList.remove(cls), cls === 'bliss' ? 1700 : 800);
+    setTimeout(() => pet.classList.remove(cls), cls === 'bliss' ? 1700 : cls === 'talk' ? 2600 : 800);
     return;
   }
   const linked = e.target.closest('[data-open-link]');

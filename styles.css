@@ -501,3 +501,38 @@ textarea:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
   background: radial-gradient(circle at 50% 35%, var(--core-b, #c04dff), var(--core-c, #3b1d9e) 80%); }
 .hb-av img { position: absolute; width: 34px; left: -5px; top: 1px; }
 .app-bar .hub-back { margin-top: 6px; }
+
+/* ---------- ตัวละคร Alpha (แทน "คน") — สื่อสถานะด้วยบรรยากาศ ไม่แก้หน้า/ผม ---------- */
+.buddy-alpha { aspect-ratio: 1; --mood: #5fe3a1; }
+.buddy-alpha.ok { --mood: #ffc46b; }
+.buddy-alpha.bad { --mood: #ff5f6d; }
+.buddy-alpha .ba-aura { position: absolute; inset: 4%; border-radius: 50%;
+  background: radial-gradient(circle at 50% 42%, color-mix(in srgb, var(--mood) 85%, #fff) 0, var(--mood) 35%, transparent 70%);
+  opacity: calc(.3 + .6 * var(--lv, 1)); filter: blur(2px); animation: ba-breathe 4s ease-in-out infinite; }
+.buddy-alpha.bad .ba-aura { filter: blur(2px) saturate(.7) brightness(.85); }
+.buddy-alpha .char { position: absolute; left: 50%; top: 2%; width: 74%; transform: translateX(-50%); isolation: isolate;
+  filter: drop-shadow(0 0 1px rgba(255, 255, 255, .7)) drop-shadow(0 0 8px color-mix(in srgb, var(--mood) 60%, transparent));
+  -webkit-mask-image: linear-gradient(#000 72%, transparent 97%); mask-image: linear-gradient(#000 72%, transparent 97%); }
+.buddy-alpha .char img { display: block; width: 100%; height: auto; }
+.buddy-alpha .shirt { position: absolute; inset: 0; background: var(--shirt, #b07cff); mix-blend-mode: color;
+  -webkit-mask: url(img/alpha-shirt-mask.png) center / 100% 100% no-repeat; mask: url(img/alpha-shirt-mask.png) center / 100% 100% no-repeat; }
+.buddy-alpha .ba-fx { position: absolute; inset: 0; z-index: 2; pointer-events: none; overflow: hidden; border-radius: 50%; }
+.buddy-alpha .sp { position: absolute; width: 7%; aspect-ratio: 1; background: #fff; clip-path: polygon(50% 0, 62% 38%, 100% 50%, 62% 62%, 50% 100%, 38% 62%, 0 50%, 38% 38%);
+  filter: drop-shadow(0 0 3px var(--mood)); animation: ba-twinkle 2.4s ease-in-out infinite; }
+.buddy-alpha .s1 { top: 12%; left: 14%; } .buddy-alpha .s2 { top: 30%; right: 10%; animation-delay: .8s; width: 5%; } .buddy-alpha .s3 { bottom: 30%; left: 8%; animation-delay: 1.6s; width: 4%; }
+.buddy-alpha .cloud { position: absolute; height: 12%; width: 34%; border-radius: 99px; background: rgba(255, 255, 255, .55); filter: blur(1px); animation: ba-drift 7s linear infinite; }
+.buddy-alpha .cloud::before { content: ""; position: absolute; width: 50%; height: 140%; left: 18%; bottom: 30%; border-radius: 50%; background: inherit; }
+.buddy-alpha .c1 { top: 10%; left: -30%; } .buddy-alpha .c2 { top: 26%; left: -40%; width: 26%; opacity: .7; animation-delay: -3.5s; animation-duration: 9s; }
+.buddy-alpha .rain { position: absolute; inset: -20% 0 0; background: repeating-linear-gradient(105deg, transparent 0 9px, rgba(170, 200, 255, .55) 9px 10px, transparent 10px 18px);
+  -webkit-mask-image: linear-gradient(transparent, #000 25%, #000 75%, transparent); mask-image: linear-gradient(transparent, #000 25%, #000 75%, transparent);
+  animation: ba-rain .7s linear infinite; }
+.buddy-alpha .ba-bubble { position: absolute; z-index: 3; left: 50%; bottom: 96%; transform: translate(-50%, 6px); white-space: nowrap;
+  padding: 5px 10px; border-radius: 12px; font-size: 12px; font-weight: 600; color: var(--text);
+  background: var(--panel); box-shadow: 0 6px 16px rgba(0, 0, 0, .2); opacity: 0; pointer-events: none; transition: opacity .25s, transform .25s; }
+.buddy-alpha.talk .ba-bubble { opacity: 1; transform: translate(-50%, 0); }
+.buddy-choice .buddy-alpha .ba-bubble { display: none; }
+@keyframes ba-breathe { 50% { transform: scale(1.05); } }
+@keyframes ba-twinkle { 50% { opacity: .2; transform: scale(.6); } }
+@keyframes ba-drift { to { transform: translateX(420%); } }
+@keyframes ba-rain { to { background-position: -6px 18px; } }
+@media (prefers-reduced-motion: reduce) { .buddy-alpha * { animation: none !important; } }
