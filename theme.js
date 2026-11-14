@@ -1,6 +1,12 @@
 'use strict';
 // โหลดใน <head> เพื่อใส่ธีมก่อนหน้าเว็บแสดงผล (ไม่มีจอกะพริบ)
 const THEME_KEY = 'fa.theme';
+// ธีมสีของ Alpha (gpicha3.github.io) → พาเลตต์ที่ใกล้ที่สุดของแอปนี้ (ต้องตรงกับ alpha-theme.js)
+const ALPHA_THEME_KEY = 'alpha.theme';
+const ALPHA_THEME = { aurora: 'lavender', ocean: 'sky', sunset: 'peach', forest: 'mint', rose: 'pink', mono: 'black' };
+function alphaPalette() {
+  try { return ALPHA_THEME[JSON.parse(localStorage.getItem(ALPHA_THEME_KEY) || '"aurora"')] || ALPHA_THEME.aurora; } catch { return ALPHA_THEME.aurora; }
+}
 
 // พาเลตต์ไล่สี: g = สีไล่ 3 จุดบนลงล่าง / panel = การ์ด / onA = สีตัวอักษรบนปุ่มสีหลัก
 const PALETTES = {
@@ -74,8 +80,11 @@ function characterVars(id, p) {
 }
 
 function loadTheme() {
-  try { return { mode: 'auto', palette: 'sky', ...JSON.parse(localStorage.getItem(THEME_KEY) || '{}') }; }
-  catch { return { mode: 'auto', palette: 'sky' }; }
+  let theme;
+  try { theme = { mode: 'auto', palette: 'sky', ...JSON.parse(localStorage.getItem(THEME_KEY) || '{}') }; }
+  catch { theme = { mode: 'auto', palette: 'sky' }; }
+  theme.palette = alphaPalette(); // สีตามธีมที่เลือกใน Alpha
+  return theme;
 }
 
 const gradientOf = (g) => `linear-gradient(170deg, ${g[0]} 0%, ${g[1]} 40%, ${g[2]} 100%)`;
