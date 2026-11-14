@@ -496,11 +496,12 @@ function openAccountLink(name) {
   else location.href = url;
 }
 
+// แก้/เลิกเชื่อมต่อทำที่หน้าตั้งค่าของ Alpha แล้ว ที่นี่แสดงแค่สถานะ
 function renderConnection(editing = false) {
   const connected = !!state.setup;
-  $('#connCard').hidden = !connected || editing;
-  $('#connActions').hidden = !connected || editing;
-  $('#setupEditor').hidden = connected && !editing;
+  $('#connCard').hidden = !connected;
+  $('#connActions').hidden = true;
+  $('#setupEditor').hidden = true;
   $('#cancelEditBtn').hidden = !connected;
   if (connected) {
     const at = new Date(state.synced);
@@ -509,6 +510,8 @@ function renderConnection(editing = false) {
   $('#setupInput').value = editing && connected ? `${state.setup.url}?k=${state.setup.k}` : '';
   $('#settingsStatus').textContent = connected ? '' : t('not_connected');
   $('#settingsStatus').className = 'hint';
+  // ยังไม่เชื่อม: โชว์ข้อความสถานะนอกช่องแก้ (ช่องแก้ซ่อนแล้ว)
+  $('#connNote').textContent = connected ? '' : t('not_connected');
 }
 
 function initSettings() {

@@ -4,8 +4,25 @@ const THEME_KEY = 'fa.theme';
 // ธีมสีของ Alpha (gpicha3.github.io) → พาเลตต์ที่ใกล้ที่สุดของแอปนี้ (ต้องตรงกับ alpha-theme.js)
 const ALPHA_THEME_KEY = 'alpha.theme';
 const ALPHA_THEME = { aurora: 'lavender', ocean: 'sky', sunset: 'peach', forest: 'mint', rose: 'pink', mono: 'black' };
-function alphaPalette() {
-  try { return ALPHA_THEME[JSON.parse(localStorage.getItem(ALPHA_THEME_KEY) || '"aurora"')] || ALPHA_THEME.aurora; } catch { return ALPHA_THEME.aurora; }
+function alphaThemeId() {
+  try {
+    const id = JSON.parse(localStorage.getItem(ALPHA_THEME_KEY) || '"aurora"');
+    if (id !== 'time') return ALPHA_THEME[id] ? id : 'aurora';
+    const h = new Date().getHours(); // ธีมตามเวลา (ต้องตรงกับ alpha-theme.js)
+    return h >= 6 && h < 16 ? 'ocean' : h >= 16 && h < 19 ? 'sunset' : 'aurora';
+  } catch { return 'aurora'; }
+}
+function alphaMode() {
+  try { const m = JSON.parse(localStorage.getItem('alpha.mode') || 'null'); return ['auto', 'light', 'dark'].includes(m) ? m : null; } catch { return null; }
+}
+function alphaPalette(mode) {
+  const id = alphaThemeId();
+  // Mono: โหมดสว่างใช้พาเลตต์ขาว โหมดมืดใช้ดำ
+  if (id === 'mono') {
+    const dark = mode === 'dark' || (mode !== 'light' && matchMedia('(prefers-color-scheme: dark)').matches);
+    return dark ? 'black' : 'white';
+  }
+  return ALPHA_THEME[id];
 }
 
 // พาเลตต์ไล่สี: g = สีไล่ 3 จุดบนลงล่าง / panel = การ์ด / onA = สีตัวอักษรบนปุ่มสีหลัก
@@ -83,7 +100,9 @@ function loadTheme() {
   let theme;
   try { theme = { mode: 'auto', palette: 'sky', ...JSON.parse(localStorage.getItem(THEME_KEY) || '{}') }; }
   catch { theme = { mode: 'auto', palette: 'sky' }; }
-  theme.palette = alphaPalette(); // สีตามธีมที่เลือกใน Alpha
+  const m = alphaMode();
+  if (m) theme.mode = m;                    // โหมดสว่าง/มืดตามที่ตั้งใน Alpha
+  theme.palette = alphaPalette(theme.mode); // สีตามธีมที่เลือกใน Alpha
   return theme;
 }
 

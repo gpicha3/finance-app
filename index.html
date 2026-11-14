@@ -34,23 +34,32 @@
         <section class="view" id="view-loans" hidden></section>
         <section class="view" id="view-settings" hidden>
           <div class="set-page">
-            <h3 class="set-title" data-i18n="set_mode"></h3>
-            <div class="segmented" id="themeSeg">
+            <!-- โหมด สี ภาษา และการเชื่อมต่อ ตั้งที่ Alpha ที่เดียว (ส่วนเดิมซ่อนไว้ ไม่ลบ เพื่อไม่ให้โค้ดเดิมพัง) -->
+            <h3 class="set-title" data-i18n="set_alpha"></h3>
+            <section class="panel">
+              <a class="set-row alpha-link" href="/#settings">
+                <div class="set-text"><b data-i18n="alpha_link"></b><small data-i18n="alpha_link_sub"></small></div>
+                <svg class="chev-r" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg>
+              </a>
+            </section>
+
+            <h3 class="set-title" data-i18n="set_mode" hidden></h3>
+            <div class="segmented" id="themeSeg" hidden>
               <i class="seg-glider" aria-hidden="true"></i>
               <button type="button" data-theme-mode="auto" data-i18n="mode_auto"></button>
               <button type="button" data-theme-mode="light" data-i18n="mode_light"></button>
               <button type="button" data-theme-mode="dark" data-i18n="mode_dark"></button>
             </div>
 
-            <h3 class="set-title" data-i18n="set_language"></h3>
-            <div class="segmented" id="langSeg">
+            <h3 class="set-title" data-i18n="set_language" hidden></h3>
+            <div class="segmented" id="langSeg" hidden>
               <i class="seg-glider" aria-hidden="true"></i>
               <button type="button" data-lang="th">ไทย</button>
               <button type="button" data-lang="en">English</button>
             </div>
 
-            <h3 class="set-title" data-i18n="set_palette"></h3>
-            <section class="panel"><div class="palettes" id="palettes"></div></section>
+            <h3 class="set-title" data-i18n="set_palette" hidden></h3>
+            <section class="panel" hidden><div class="palettes" id="palettes"></div></section>
 
             <h3 class="set-title" data-i18n="set_buddy"></h3>
             <section class="panel"><div class="buddies" id="buddies"></div></section>
@@ -71,6 +80,7 @@
                 <button type="button" class="btn ghost" id="editLinkBtn" data-i18n="edit_setup"></button>
                 <button type="button" class="btn danger" id="clearSetupBtn" data-i18n="disconnect"></button>
               </div>
+              <p id="connNote" class="hint" style="margin:6px 4px"></p>
               <div id="setupEditor" class="setup">
                 <label class="field">
                   <span>Setup code</span>
