@@ -88,13 +88,8 @@ function toast(msg, ms = 2600) {
 }
 
 /* ---------- API (Google Apps Script) ---------- */
-async function apiGet(setup) {
-  const q = new URLSearchParams({ k: setup.k });
-  const res = await fetch(`${setup.url}?${q}`, { cache: 'no-store' });
-  const data = await res.json();
-  if (data.error) throw new Error(data.error);
-  return data;
-}
+// ตัวเรียก API อยู่ใน api.js (ใช้ร่วมกับ Hub)
+function apiGet(setup) { return FinanceApi.apiGet(setup); }
 
 function saveData(data) {
   state.data = data;
@@ -901,3 +896,13 @@ if ('serviceWorker' in navigator && location.protocol === 'https:') {
 
 applyLanguage();
 if (state.setup) sync({ quiet: true });
+
+// ลิงก์ตรงจาก Hub เช่น /finance-app/#loans, #cycles, #fixed, #settings
+function openFromHash() {
+  const id = decodeURIComponent(location.hash.slice(1));
+  if (!id) return;
+  history.replaceState(null, '', location.pathname + location.search);
+  if (TABS.includes(id) && id !== state.tab) showTab(id);
+}
+openFromHash();
+window.addEventListener('hashchange', openFromHash);

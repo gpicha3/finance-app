@@ -441,3 +441,9 @@ textarea:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
 }
+
+/* ปุ่มกลับ Hub (gpicha3.github.io) */
+.hub-back { display: inline-flex; align-items: center; gap: 5px; padding: 4px 10px 4px 8px; border-radius: 99px; font-size: 12px; font-weight: 600; line-height: 1.3; text-decoration: none; color: var(--muted); background: color-mix(in srgb, var(--text) 7%, transparent); pointer-events: auto; -webkit-tap-highlight-color: transparent; }
+.hub-back svg { width: 12px; height: 12px; fill: none; stroke: currentColor; stroke-width: 1.6; }
+.hub-back:active { opacity: .6; }
+.app-bar .hub-back { flex: none; align-self: flex-start; margin-top: 9px; }
