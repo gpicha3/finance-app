@@ -42,15 +42,28 @@ export async function getSummary() {
   if (budget.left < 0) {
     alerts.push({ level: 'urgent', text: `ใช้เกินงบรอบนี้ ฿${money(-budget.left)}`, dueDate: iso(today), link: `${BASE}#today` });
   } else if (budget.ahead > 0) {
-    alerts.push({ level: 'soon', text: `ใช้เร็วกว่าแผน ฿${money(budget.ahead)}`, dueDate: iso(today), link: `${BASE}#today` });
+    // kind/amount ให้ hub ซ่อนได้ถ้ายอดไม่ถึงเกณฑ์ที่ตั้งไว้ (ค่าเริ่มต้น ฿100)
+    alerts.push({ level: 'soon', kind: 'pace', amount: budget.ahead, text: `ใช้เร็วกว่าแผน ฿${money(budget.ahead)}`, dueDate: iso(today), link: `${BASE}#today` });
   }
 
+  // งวดผ่อนที่ครบภายใน 14 วัน: วันเดียวกันรวมเป็นบรรทัดเดียว (กดดูรายการย่อยได้ใน hub)
+  const byDate = new Map();
   for (const i of loans.items) {
     if (i.done || !i.nextDue) continue;
     const days = Calc.daysBetween(today, i.nextDue);
     if (days > 14) continue;
-    alerts.push({ level: levelOf(days), text: `ผ่อน ${i.name} ฿${money(i.monthly)} · ${inDays(days)}`,
-      dueDate: iso(i.nextDue), link: `${BASE}#loans` });
+    const key = iso(i.nextDue);
+    if (!byDate.has(key)) byDate.set(key, { days, due: i.nextDue, list: [] });
+    byDate.get(key).list.push(i);
+  }
+  for (const [key, g] of byDate) {
+    const total = g.list.reduce((s, i) => s + i.monthly, 0);
+    const one = g.list.length === 1;
+    alerts.push({
+      level: levelOf(g.days), kind: 'installment', dueDate: key, link: `${BASE}#loans`,
+      text: one ? `ผ่อน ${g.list[0].name} ฿${money(total)} · ${inDays(g.days)}` : `ผ่อน ${g.list.length} รายการ ฿${money(total)} · ${inDays(g.days)}`,
+      items: one ? undefined : g.list.map((i) => ({ text: `${i.name} ฿${money(i.monthly)}`, link: `${BASE}#loans` })),
+    });
   }
   for (const i of loans.items) {
     if (i.left === 1) alerts.push({ level: 'info', text: `${i.name} เหลืองวดสุดท้าย`, dueDate: iso(i.nextDue), link: `${BASE}#loans` });
