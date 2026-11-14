@@ -464,3 +464,40 @@ textarea:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
 .alpha-link { color: inherit; text-decoration: none; display: flex; align-items: center; gap: 10px; }
 .alpha-link .set-text { flex: 1; }
 .alpha-link .chev-r { width: 18px; height: 18px; flex: none; color: var(--muted); }
+
+/* ================= Alpha skin: หน้าตาให้เข้ากับ Alpha (สีจาก /alpha-theme.js) =================
+   theme.js ของแอปยังตั้งพาเลตต์/โหมดเหมือนเดิม ส่วนนี้แค่เปลี่ยนพื้นหลัง การ์ด และสีเน้นให้ตรงกับ Alpha */
+:root[data-alpha-mode="dark"] { --alpha-bg: var(--bg-dark, #07040f); --aura1: var(--g1); --aura2: var(--g2); --aura3: var(--g3); }
+:root[data-alpha-mode="light"] { --alpha-bg: var(--bg-light, #f6f3ff);
+  --aura1: color-mix(in srgb, var(--g1) 40%, transparent); --aura2: color-mix(in srgb, var(--g2) 40%, transparent); --aura3: color-mix(in srgb, var(--g3) 40%, transparent); }
+:root[data-alpha-mode] { background: var(--alpha-bg); }
+:root[data-alpha-mode] body { background: var(--alpha-bg); }
+:root[data-alpha-mode] .shell {
+  background:
+    radial-gradient(40% 26% at 16% 10%, var(--aura1), transparent 70%),
+    radial-gradient(36% 24% at 90% 30%, var(--aura2), transparent 70%),
+    radial-gradient(46% 30% at 50% 98%, var(--aura3), transparent 70%),
+    var(--alpha-bg);
+}
+:root[data-alpha-mode] .app-bar::before { background: color-mix(in srgb, var(--alpha-bg) 70%, transparent); }
+/* การ์ดกระจกแบบ Alpha (โหมดมืด) */
+:root[data-alpha-mode="dark"] .panel, :root[data-alpha-mode="dark"] .banner, :root[data-alpha-mode="dark"] .segmented,
+:root[data-alpha-mode="dark"] .ptr, :root[data-alpha-mode="dark"] .payday {
+  background: rgba(255, 255, 255, .07); border-color: rgba(255, 255, 255, .13); box-shadow: 0 10px 30px rgba(0, 0, 0, .3);
+}
+/* สีเน้นตามธีมของ Alpha */
+:root[data-alpha-mode] .tab-glider { background: linear-gradient(135deg, var(--vi, #b48cff), var(--pk, #ff5fbf)); box-shadow: 0 4px 14px var(--halo, transparent); }
+:root[data-alpha-mode] .tabs button.active { color: #fff; }
+:root[data-alpha-mode] .ring-fill:not(.bad), :root[data-alpha-mode] .ring-glow:not(.bad) { stroke: var(--vi, #b48cff); }
+:root[data-alpha-mode] .payday i { background: color-mix(in srgb, var(--vi, #b48cff) 30%, transparent); }
+:root[data-alpha-mode] .banner button, :root[data-alpha-mode] .tile .go { color: var(--vi, #b48cff); }
+:root[data-alpha-mode="light"] .banner button, :root[data-alpha-mode="light"] .tile .go { color: color-mix(in srgb, var(--vi, #b48cff) 72%, #1a1030); }
+
+/* ปุ่มกลับ Alpha (มีรูปตัวละครวงกลมเล็ก) */
+.hub-back { padding: 3px 11px 3px 3px; gap: 7px; }
+:root[data-alpha-mode] .hub-back { background: rgba(255, 255, 255, .08); border: 1px solid rgba(255, 255, 255, .14); color: var(--text); }
+:root[data-alpha-mode="light"] .hub-back { background: rgba(255, 255, 255, .65); border-color: rgba(30, 20, 60, .1); }
+.hb-av { position: relative; width: 24px; height: 24px; border-radius: 50%; overflow: hidden; flex: none;
+  background: radial-gradient(circle at 50% 35%, var(--core-b, #c04dff), var(--core-c, #3b1d9e) 80%); }
+.hb-av img { position: absolute; width: 34px; left: -5px; top: 1px; }
+.app-bar .hub-back { margin-top: 6px; }
