@@ -489,6 +489,8 @@ textarea:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
 :root[data-alpha-mode] .tab-glider { background: linear-gradient(135deg, var(--vi, #b48cff), var(--pk, #ff5fbf)); box-shadow: 0 4px 14px var(--halo, transparent); }
 :root[data-alpha-mode] .tabs button.active { color: #fff; }
 :root[data-alpha-mode] .ring-fill:not(.bad), :root[data-alpha-mode] .ring-glow:not(.bad) { stroke: var(--vi, #b48cff); }
+/* ธีม Mono โหมดสว่าง: สีหลักของ Mono เกือบขาว (#e4e4ea) วงที่ใช้จะกลืนกับราง → ใช้สีเข้มของพาเลตต์ขาวแทน */
+:root[data-alpha-theme="mono"][data-alpha-mode="light"] .ring-fill:not(.bad), :root[data-alpha-theme="mono"][data-alpha-mode="light"] .ring-glow:not(.bad) { stroke: var(--accent, #18181b); }
 :root[data-alpha-mode] .payday i { background: color-mix(in srgb, var(--vi, #b48cff) 30%, transparent); }
 :root[data-alpha-mode] .banner button, :root[data-alpha-mode] .tile .go { color: var(--vi, #b48cff); }
 :root[data-alpha-mode="light"] .banner button, :root[data-alpha-mode="light"] .tile .go { color: color-mix(in srgb, var(--vi, #b48cff) 72%, #1a1030); }
