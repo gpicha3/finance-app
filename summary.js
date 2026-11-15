@@ -72,6 +72,15 @@ export async function getSummary() {
     alerts.push({ level: 'info', text: `เงินเดือนเข้า${inDays(budget.days)}`, dueDate: iso(budget.payday), link: `${BASE}#today` });
   }
 
+  const rows = (data.daily || []).filter((r) => r.type === Calc.EXPENSE && Number.isFinite(r.amount));
+  const lastLog = rows.map((r) => Calc.parseYmd(r.date)).filter(Boolean).sort((x, y) => y - x)[0] || null;
+  const yesterday = new Date(today.getFullYear(), today.getMonth(), today.getDate() - 1);
+  const spentOnDay = (day) => rows.reduce((sum, r) => {
+    const d = Calc.parseYmd(r.date);
+    return d && Calc.daysBetween(d, day) === 0 ? sum + r.amount : sum;
+  }, 0);
+  const period = Calc.budgetPeriod(key);
+
   // ข้อมูลดิบ (ตัวเลข/สถานะ) ให้ hub แต่งประโยคพูดเอง — แอปนี้ไม่ส่งประโยค
   // daysToPayday: 0 = วันนี้เงินเดือนเข้า (วันที่ 25 = วันแรกของรอบใหม่) · prevLeft = เงินค่ากินที่เหลือของรอบที่เพิ่งจบ (ติดลบ = เกินงบ)
   const prevKey = cycles.map((c) => c.key).filter((k) => !k.startsWith('x:') && k < key).sort().pop();
@@ -88,6 +97,10 @@ export async function getSummary() {
     installments: [...byDate.values()].sort((x, y) => x.days - y.days)
       .map((g) => ({ days: g.days, count: g.list.length, total: g.list.reduce((s, i) => s + i.monthly, 0) })),
     lastInstallments: loans.items.filter((i) => i.left === 1 && !i.done).map((i) => i.name),
+    // สำหรับ "ไม่แน่ใจ" / "แซว": วันที่ของรายการค่ากินล่าสุด · ยอดเมื่อวาน · แผนต่อวันของรอบนี้
+    lastLogDate: iso(lastLog),
+    yesterdaySpent: spentOnDay(yesterday),
+    dailyPlan: budget.budget / (Calc.daysBetween(period.start, period.end) + 1),
   };
 
   return {
