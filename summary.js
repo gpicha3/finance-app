@@ -72,17 +72,22 @@ export async function getSummary() {
     alerts.push({ level: 'info', text: `เงินเดือนเข้า${inDays(budget.days)}`, dueDate: iso(budget.payday), link: `${BASE}#today` });
   }
 
-  // ข้อมูลดิบให้ hub แต่งประโยคพูดเอง (ค่ากิน · งวดผ่อนที่ใกล้สุด · รอบก่อนเกินงบไหม)
-  const prevKey = cycles.map((c) => c.key).filter((k) => k < key).sort().pop();
+  // ข้อมูลดิบ (ตัวเลข/สถานะ) ให้ hub แต่งประโยคพูดเอง — แอปนี้ไม่ส่งประโยค
+  // daysToPayday: 0 = วันนี้เงินเดือนเข้า (วันที่ 25 = วันแรกของรอบใหม่) · prevLeft = เงินค่ากินที่เหลือของรอบที่เพิ่งจบ (ติดลบ = เกินงบ)
+  const prevKey = cycles.map((c) => c.key).filter((k) => !k.startsWith('x:') && k < key).sort().pop();
   const prev = cycles.find((c) => c.key === prevKey);
-  const [nextGroup] = [...byDate.values()].sort((x, y) => x.days - y.days);
+  const isPayday = today.getDate() === Calc.PAY_DAY;
   const facts = {
     left: budget.left,
-    days: budget.days,
+    daysToPayday: isPayday ? 0 : budget.days,
     perDay: budget.days > 0 ? budget.left / budget.days : budget.left,
     over: budget.left < 0 ? -budget.left : 0,
     prevOver: !!prev && prev.expense > budget.budget,
-    install: nextGroup ? { count: nextGroup.list.length, total: nextGroup.list.reduce((s, i) => s + i.monthly, 0), days: nextGroup.days } : null,
+    prevLeft: prev ? budget.budget - prev.expense : null,
+    // งวดที่ครบภายใน 14 วัน วันเดียวกันรวมเป็นรายการเดียว เรียงจากใกล้สุด
+    installments: [...byDate.values()].sort((x, y) => x.days - y.days)
+      .map((g) => ({ days: g.days, count: g.list.length, total: g.list.reduce((s, i) => s + i.monthly, 0) })),
+    lastInstallments: loans.items.filter((i) => i.left === 1 && !i.done).map((i) => i.name),
   };
 
   return {
