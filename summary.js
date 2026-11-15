@@ -72,8 +72,21 @@ export async function getSummary() {
     alerts.push({ level: 'info', text: `เงินเดือนเข้า${inDays(budget.days)}`, dueDate: iso(budget.payday), link: `${BASE}#today` });
   }
 
+  // ข้อมูลดิบให้ hub แต่งประโยคพูดเอง (ค่ากิน · งวดผ่อนที่ใกล้สุด · รอบก่อนเกินงบไหม)
+  const prevKey = cycles.map((c) => c.key).filter((k) => k < key).sort().pop();
+  const prev = cycles.find((c) => c.key === prevKey);
+  const [nextGroup] = [...byDate.values()].sort((x, y) => x.days - y.days);
+  const facts = {
+    left: budget.left,
+    days: budget.days,
+    perDay: budget.days > 0 ? budget.left / budget.days : budget.left,
+    over: budget.left < 0 ? -budget.left : 0,
+    prevOver: !!prev && prev.expense > budget.budget,
+    install: nextGroup ? { count: nextGroup.list.length, total: nextGroup.list.reduce((s, i) => s + i.monthly, 0), days: nextGroup.days } : null,
+  };
+
   return {
-    app, title: 'Finance', stats, alerts,
+    app, title: 'Finance', stats, alerts, facts,
     brief: [
       `เงินเหลือรอบนี้ ฿${money(budget.left)} · เงินเดือนอีก ${budget.days} วัน`,
       budget.left > 0 ? `ใช้ได้วันละ ~฿${money(budget.perDay)}` : null,
