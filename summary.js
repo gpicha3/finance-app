@@ -11,6 +11,9 @@ const read = (k, fallback) => {
 };
 
 const money = (n) => (Number.isFinite(n) ? Math.round(n).toLocaleString('th-TH') : '–');
+// มีสตางค์ = แสดง 2 ตำแหน่ง เช่น 18,069.67 · จำนวนเต็ม = 11,334
+const exact = (n) => (!Number.isFinite(n) ? '–' : Number.isInteger(n) ? n.toLocaleString('en-US')
+  : n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
 const iso = (d) => (d ? `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}` : null);
 const inDays = (n) => (n < 0 ? `เลยกำหนด ${-n} วัน` : n === 0 ? 'วันนี้' : n === 1 ? 'พรุ่งนี้' : `อีก ${n} วัน`);
 const levelOf = (days) => (days <= 3 ? 'urgent' : days <= 14 ? 'soon' : 'info');
@@ -31,6 +34,9 @@ export async function getSummary() {
   const current = cycles.find((c) => c.key === key);
   const budget = Calc.budgetSummary(current, today);
   const loans = Calc.installmentSummary(data.installments || [], today);
+  // ยอดเตรียมวันเงินเข้า (Fix cost: ttb + บิลบัตร) แทนยอดผ่อนของวันเดียวกัน ไม่บวกซ้ำ
+  const prep = Calc.paydayPrep(data.fixCost || [], data.installments || [], today);
+  const prepKey = iso(prep.payday);
 
   const stats = [
     { label: 'เหลือรอบนี้', value: money(budget.left), unit: '฿' },
@@ -56,7 +62,19 @@ export async function getSummary() {
     if (!byDate.has(key)) byDate.set(key, { days, due: i.nextDue, list: [] });
     byDate.get(key).list.push(i);
   }
+  if (prep.days <= 14 && prep.total > 0) {
+    const lines = prep.fallback
+      ? [{ label: 'ผ่อน (ยังไม่มีบิลบัตรเดือนนี้)', amount: prep.total }]
+      : [{ label: 'ตัด ttb', amount: prep.ttb }, { label: 'บิลบัตร', amount: prep.cc }];
+    alerts.push({
+      level: levelOf(prep.days), kind: 'payday', dueDate: prepKey, link: `${BASE}#fixed`,
+      text: `เตรียมวันเงินเข้า ฿${exact(prep.total)} · ${inDays(prep.days)}`,
+      lines, total: prep.total, note: prep.fallback ? 'ยังไม่มีบิลบัตรเดือนนี้' : undefined,
+      items: lines.map((l) => ({ text: `${l.label} ฿${exact(l.amount)}`, link: `${BASE}#fixed` })),
+    });
+  }
   for (const [key, g] of byDate) {
+    if (key === prepKey && prep.days <= 14 && prep.total > 0) continue; // รวมอยู่ในยอดเตรียมวันเงินเข้าแล้ว
     const total = g.list.reduce((s, i) => s + i.monthly, 0);
     const one = g.list.length === 1;
     alerts.push({
@@ -86,6 +104,8 @@ export async function getSummary() {
   const prevKey = cycles.map((c) => c.key).filter((k) => !k.startsWith('x:') && k < key).sort().pop();
   const prev = cycles.find((c) => c.key === prevKey);
   const isPayday = today.getDate() === Calc.PAY_DAY;
+  const save = Calc.savingsSummary(data.savings);
+  const food = Calc.foodActual(current, Calc.savingsByCycle(data.savings?.rows).get(key));
   const facts = {
     left: budget.left,
     daysToPayday: isPayday ? 0 : budget.days,
@@ -101,6 +121,17 @@ export async function getSummary() {
     lastLogDate: iso(lastLog),
     yesterdaySpent: spentOnDay(yesterday),
     dailyPlan: budget.budget / (Calc.daysBetween(period.start, period.end) + 1),
+    // ยอดเตรียมวันเงินเข้า: fallback = ยังไม่มีบิลบัตร ใช้ยอดผ่อนจาก Installments
+    payday: { days: prep.days, date: prepKey, ttb: prep.ttb, cc: prep.cc, total: prep.total, fallback: prep.fallback },
+    // เงินเก็บ (ค่าตรงจากกล่อง H:I ของแท็บเงินเก็บ) · ค่ากินจริง = Daily Log หมวด กิน + MAKE ออก หมวด กิน
+    makeLeft: save?.make ?? null,
+    makeOutThisCycle: save?.outThisCycle ?? null,
+    stockValue: save?.stock?.value ?? null,
+    stockPnl: save?.stock?.pnl ?? null,
+    savingsTotal: save?.total ?? null,
+    foodActual: food.total,
+    foodOver: food.over,
+    foodBudget: food.budget,
   };
 
   return {

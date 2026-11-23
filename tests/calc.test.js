@@ -271,3 +271,54 @@ test('ยอดผ่อนต่อเดือนตรงกับบล็�
   assert.equal(C.installmentSummary(list, D('2026-11-25')).now, 100);
   assert.equal(C.installmentSummary(list, D('2026-11-25')).timeline.some((e) => e.ended.includes('สั้น')), false);
 });
+
+test('ยอดเตรียมวันเงินเข้า: ttb + บิลบัตร (CC -) จากบล็อกเดือนของวันเงินเข้า', () => {
+  const blocks = [{ ym: '2026-11', items: [
+    { name: 'Rent', amount: 1000 }, { name: 'Car installments', amount: '1,200.00' },
+    { name: 'CC - Laptop', amount: 300.5 }, { name: 'CC - Fuel', amount: '99.25' }, { name: 'Shopee', amount: null },
+  ] }];
+  const inst = [{ name: 'A', monthly: 777, totalMonths: 10, firstMonth: '2026-05', dueDay: 25 }];
+  const p = C.paydayPrep(blocks, inst, D('2026-11-23'));
+  assert.equal(p.ym, '2026-11');
+  assert.equal(p.days, 2);
+  assert.equal(p.fallback, false);
+  assert.equal(p.ttb, 1200);
+  assert.equal(p.cc, 399.75);
+  assert.equal(p.total, 1599.75);
+  assert.deepEqual(p.cards.map((c) => c.name), ['Laptop', 'Fuel']);
+  // วันที่ 25 เอง = เงินเข้าวันนี้ ยังใช้บล็อกเดือนนี้
+  assert.equal(C.paydayPrep(blocks, inst, D('2026-11-25')).ym, '2026-11');
+  // วันที่ 26 → รอบถัดไป ไม่มีบล็อก → ใช้ยอดจาก Installments
+  const f = C.paydayPrep(blocks, inst, D('2026-11-26'));
+  assert.equal(f.ym, '2026-12');
+  assert.equal(f.fallback, true);
+  assert.equal(f.total, 777);
+});
+
+test('parseNum อ่านตัวเลขที่เป็นข้อความ', () => {
+  assert.equal(C.parseNum('11,334.00'), 11334);
+  assert.equal(C.parseNum('-270'), -270);
+  assert.equal(C.parseNum(''), null);
+  assert.equal(C.parseNum(null), null);
+  assert.equal(C.parseNum(5.5), 5.5);
+});
+
+test('เงินเก็บ: ดึงออกต่อรอบตามวันที่ และค่ากินจริง = Daily Log กิน + ออกหมวดกิน', () => {
+  const save = [
+    { date: '2026-11-19', type: 'ยอดตั้งต้น', amount: 2000, category: '-' },
+    { date: '2026-11-21', type: 'ออก', amount: -100, category: 'เดินทาง' },
+    { date: '2026-11-21', type: 'ออก', amount: '-250', category: 'กิน' },
+    { date: '2026-11-26', type: 'ออก', amount: -10, category: 'กิน' },
+  ];
+  const map = C.savingsByCycle(save);
+  assert.equal(map.get('2026-10').out, 350);
+  assert.equal(map.get('2026-10').food, 250);
+  assert.equal(map.get('2026-11').out, 10);
+  const cycles = C.buildCycles([row('2026-11-02', '26 ต.ค.–24 พ.ย.', 6300), row('2026-11-03', '26 ต.ค.–24 พ.ย.', 40, { category: 'ของใช้' })], D('2026-11-23'));
+  const f = C.foodActual(cycles.find((c) => c.key === '2026-10'), map.get('2026-10'));
+  assert.equal(f.daily, 6300);
+  assert.equal(f.total, 6550);
+  assert.equal(f.over, 150);
+  const s = C.savingsSummary({ make: '999.50', outThisCycle: 350, stock: { symbol: 'X', value: 1000.25, pnl: -5 } });
+  assert.equal(s.total, 1999.75);
+});

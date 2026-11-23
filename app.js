@@ -1,6 +1,6 @@
 'use strict';
 
-const APP_VERSION = '2026.11.08.3';
+const APP_VERSION = '2026.11.23.1';
 const KEYS = { setup: 'fa.setup', data: 'fa.data', synced: 'fa.synced', buddy: 'fa.buddy', cycleView: 'fa.cycleView', links: 'fa.links' };
 
 const $ = (s, el = document) => el.querySelector(s);
@@ -90,7 +90,7 @@ function toast(msg, ms = 2600) {
 
 /* ---------- API (Google Apps Script) ---------- */
 // ตัวเรียก API อยู่ใน api.js (ใช้ร่วมกับ Hub)
-function apiGet(setup) { return FinanceApi.apiGet(setup); }
+function apiGet(setup, opts) { return FinanceApi.apiGet(setup, opts); }
 
 function saveData(data) {
   state.data = data;
@@ -103,8 +103,9 @@ function saveData(data) {
 async function sync({ quiet = false } = {}) {
   if (!state.setup || state.loading) return;
   state.loading = true;
+  renderSynced();
   try {
-    saveData(await apiGet(state.setup));
+    saveData(await apiGet(state.setup, { fresh: !quiet })); // ดึงรีเฟรชเอง = ข้ามแคชของสคริปต์
     if (!quiet) toast(t('updated'));
   } catch (err) {
     console.error(err);
@@ -166,7 +167,11 @@ function viewModel() {
   const blocks = data?.fixCost || [];
   const fixYm = Calc.fixYmOf(now);
   const current = cycles.find((c) => c.key === key);
-  return { now, key, fixYm, cycles, current, budget: Calc.budgetSummary(current, now), loans, blocks, block: blocks.find((b) => b.ym === fixYm) };
+  const savingsCycles = Calc.savingsByCycle(data?.savings?.rows);
+  return {
+    now, key, fixYm, cycles, current, budget: Calc.budgetSummary(current, now), loans, blocks, block: blocks.find((b) => b.ym === fixYm),
+    savings: Calc.savingsSummary(data?.savings), savingsCycles,
+  };
 }
 
 /* ---------- วันนี้ ---------- */
@@ -197,6 +202,21 @@ function accountCards(rows) {
     ${acc.reserved.map((r) => `<small>${esc(t('includes', r.name, ''))}<span class="nb">${money(r.amount)}</span></small>`).join('')}
   </div>`;
   }).join('')}</div>`;
+}
+
+// เงินเก็บ: ค่าตรงจากกล่องสรุป H:I ของแท็บ "เงินเก็บ" · ไม่มีข้อมูล (สคริปต์เวอร์ชันเก่า) = ไม่แสดง
+function savingsPanel(sv) {
+  if (!sv) return '';
+  const st = sv.stock;
+  const neg = (n) => `${n < 0 ? '−' : ''}${baht(Math.abs(n))}`;
+  const line = (label, value, cls = '', sub = '') => `<div class="sv-row"><span>${label}${sub}</span><b class="${cls}">${value}</b></div>`;
+  return `<section class="panel savings">
+    <div class="sv-head"><span>${t('savings_title')}</span>${sv.total != null ? `<b>${baht(sv.total)}${unit()}</b>` : ''}</div>
+    ${sv.make != null ? line(t('make_left'), `${neg(sv.make)}${unit()}`, sv.make < 0 ? 'bad' : '') : ''}
+    ${sv.outThisCycle != null ? line(t('make_out'), `${baht(sv.outThisCycle)}${unit()}`) : ''}
+    ${st && st.value != null ? line(t('stock_v', esc(st.symbol)), `${baht(st.value)}${unit()}`, '',
+      st.pnl != null ? `<small class="${st.pnl < 0 ? 'bad' : 'good'}">${t('stock_pnl', `${st.pnl < 0 ? '−' : '+'}${baht(Math.abs(st.pnl))}`)}</small>` : '') : ''}
+  </section>`;
 }
 
 function renderToday(vm) {
@@ -230,6 +250,7 @@ function renderToday(vm) {
     </section>
     ${invalid}
     ${accountCards(state.data.accounts)}
+    ${savingsPanel(vm.savings)}
     <div class="pair">
       <button class="panel tile" data-goto="fixed" data-fix="${vm.fixYm}"><span>${t('salary_left')}</span><b class="${blk && blk.balance < 0 ? 'bad' : ''}">${blk ? `${blk.balance < 0 ? '−' : ''}${plain(Math.abs(blk.balance))}${unit()}` : '–'}</b><small>${t('after_fixed')}</small></button>
       <button class="panel tile" data-goto="loans"><span>${t('loans_cycle')}</span><b>${plain(vm.loans.now)}${unit()}</b><small>${t('item_count', vm.loans.items.filter((i) => !i.done).length - vm.loans.pending.length)}</small></button>
@@ -259,6 +280,7 @@ function renderCycles(vm) {
       <div class="big"><b class="${left < 0 ? 'bad' : ''}">${left < 0 ? '−' : ''}${plain(Math.abs(left))}</b><i> / ${whole(Calc.BUDGET)}</i></div>
       <div class="equation">${t('spent_v', money(c.expense))}${c.income ? ` · ${t('extra_income', whole(c.income))}` : ''}</div>
     </section>
+    ${cycleExtras(c, vm)}
     ${c.invalid ? `<p class="hint warn">${t('invalid_rows', c.invalid)}</p>` : ''}
     <div class="segmented small page-seg" id="cycleSeg">
       <i class="seg-glider" aria-hidden="true"></i>
@@ -274,6 +296,20 @@ function renderCycles(vm) {
     commit: pickCycleView,
     restore: () => markSeg(seg, state.cycleView, 'cycleView'),
   });
+}
+
+// ต่อรอบ: ดึงจาก MAKE (แท็บเงินเก็บ ประเภท ออก) และค่ากินจริงเทียบงบ 6,400
+function cycleExtras(c, vm) {
+  if (!isNamed(c) || !state.data?.savings || state.data.savings.error) return '';
+  const sc = vm.savingsCycles.get(c.key);
+  const food = Calc.foodActual(c, sc);
+  const over = food.over > 0;
+  return `<section class="panel cycle-extra">
+    <div class="sv-row"><span>${t('make_pulled')}</span><b>${money(sc ? sc.out : 0)}</b></div>
+    <div class="sv-row"><span>${t('food_actual')}<small>Daily Log ${amount(food.daily)} + MAKE ${amount(food.fromMake)}</small></span><b class="${over ? 'bad' : ''}">${amount(food.total)}<i> / ${whole(food.budget)}</i></b></div>
+    ${bar((food.total / food.budget) * 100, over)}
+    <p class="sv-note ${over ? 'bad' : 'good'}">${over ? t('food_over', money(food.over)) : t('food_left', money(-food.over))}</p>
+  </section>`;
 }
 
 function pickCycleView(name) {
@@ -431,6 +467,7 @@ function render() {
   renderFixed(vm);
   renderLoans(vm);
   $('#pageTitle').textContent = t(`title_${state.tab}`);
+  renderSynced();
   $('#pageSub').textContent = state.tab === 'today' && state.data ? `${Calc.fmtDayMonth(vm.current.start)} – ${Calc.fmtDayMonth(vm.current.end)}` : '';
   // ป้ายนับวันเงินเข้า: น้ำในป้ายเพิ่มตามวันที่ผ่านไปของรอบ
   const pay = $('#payday');
@@ -438,6 +475,19 @@ function render() {
   $('span', pay).textContent = t('payday', vm.budget.days);
   $('i', pay).style.width = `${Math.max(8, vm.budget.plannedPct).toFixed(1)}%`;
 }
+
+// "อัปเดต 5 นาทีที่แล้ว" ใต้แถบบน · ระหว่างซิงก์ = "กำลังอัปเดต…"
+function agoText(ts) {
+  const m = Math.round((Date.now() - ts) / 60000);
+  return m < 1 ? t('ago_now') : m < 60 ? t('ago_min', m) : m < 1440 ? t('ago_hr', Math.round(m / 60)) : t('ago_day', Math.round(m / 1440));
+}
+function renderSynced() {
+  const el = $('#syncedAt');
+  if (!el) return;
+  el.textContent = !state.setup ? '' : state.loading ? t('updating') : state.synced ? t('updated_ago', agoText(state.synced)) : '';
+  el.classList.toggle('err', !!state.syncError && !state.loading);
+}
+setInterval(renderSynced, 30000);
 
 /* ---------- ตั้งค่า ---------- */
 function parseSetup(text) {

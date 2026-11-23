@@ -258,8 +258,92 @@
     return { items, now, timeline, pending: items.filter((i) => i.firstMonth > block) };
   }
 
+  /* ---------- ตัวเลขจากชีต ---------- */
+  // ตัวเลข หรือข้อความแบบ "11,334.00" / "฿1,000" / "-270" · อ่านไม่ได้ = null
+  function parseNum(v) {
+    if (typeof v === 'number') return Number.isFinite(v) ? v : null;
+    const s = String(v ?? '').replace(/[,\s฿]/g, '').replace(/^\((.*)\)$/, '-$1').replace(/[−–]/, '-');
+    return /^-?\d+(\.\d+)?$/.test(s) ? Number(s) : null;
+  }
+
+  /* ---------- ยอดที่ต้องเตรียมวันเงินเข้า ---------- */
+  // วันเงินเข้าถัดไป (วันที่ 25 เอง = วันนี้) → บล็อก Fix cost ชื่อเดือนนั้น เช่น 25 พ.ย. 2026 → "November 2026"
+  // ตัด ttb = แถว "Car installments" · บิลบัตร = ผลรวมแถวที่ขึ้นต้น "CC - " · รวม = 2 ยอดนี้
+  // ไม่มีบล็อกหรือไม่มีแถว CC → ใช้ยอดผ่อนจากแท็บ Installments ที่ครบวันนั้นแทน (fallback = true)
+  const CAR_ROW = /^car installments?$/i;
+  const CC_ROW = /^CC\s*-\s*/i;
+  function paydayPrep(blocks, installments, today) {
+    const payday = today.getDate() === PAY_DAY ? today : nextPayday(today);
+    const ym = ymOf(payday);
+    const days = daysBetween(today, payday);
+    const block = (blocks || []).find((b) => b.ym === ym);
+    const items = (block?.items || []).map((i) => ({ name: String(i.name || '').trim(), amount: parseNum(i.amount) }));
+    const cards = items.filter((i) => CC_ROW.test(i.name) && i.amount != null);
+    if (block && cards.length) {
+      const ttb = round2(items.filter((i) => CAR_ROW.test(i.name) && i.amount != null).reduce((s, i) => s + i.amount, 0));
+      const cc = round2(cards.reduce((s, i) => s + i.amount, 0));
+      return {
+        payday, ym, days, fallback: false, ttb, cc, total: round2(ttb + cc),
+        cards: cards.map((i) => ({ name: i.name.replace(CC_ROW, ''), amount: i.amount })),
+      };
+    }
+    const due = (installments || []).map((i) => installmentStatus(i, today))
+      .filter((i) => i.firstMonth <= ym && ym <= i.endMonth && i.dueDay === payday.getDate());
+    return {
+      payday, ym, days, fallback: true, ttb: null, cc: null,
+      total: round2(due.reduce((s, i) => s + i.monthly, 0)),
+      cards: due.map((i) => ({ name: i.name, amount: i.monthly })),
+    };
+  }
+
+  /* ---------- เงินเก็บ (แท็บ "เงินเก็บ") ---------- */
+  // รอบของแถวคิดจากวันที่ (ป้ายรอบในแท็บนี้กับ Daily Log เขียนไม่ตรงกัน) · ออก = ติดลบในชีต
+  const SAVE_OUT = 'ออก';
+  const SAVE_IN = 'เข้า';
+  function savingsByCycle(rows) {
+    const map = new Map();
+    (rows || []).forEach((r) => {
+      const d = parseYmd(r.date);
+      const amount = parseNum(r.amount);
+      if (!d || amount == null) return;
+      const key = cycleKeyOf(d);
+      if (!map.has(key)) map.set(key, { key, out: 0, in: 0, food: 0, rows: [] });
+      const c = map.get(key);
+      c.rows.push(r);
+      if (r.type === SAVE_OUT) {
+        c.out = round2(c.out + Math.abs(amount));
+        if (String(r.category || '').trim() === 'กิน') c.food = round2(c.food + Math.abs(amount));
+      } else if (r.type === SAVE_IN) c.in = round2(c.in + Math.abs(amount));
+    });
+    return map;
+  }
+
+  // ค่ากินจริงของรอบ = Daily Log หมวด กิน + เงินเก็บ ประเภท ออก หมวด กิน · เทียบกับงบ 6,400
+  function foodActual(cycle, savingsCycle) {
+    const daily = round2((cycle?.categories || []).filter((c) => c.name === 'กิน').reduce((s, c) => s + c.total, 0));
+    const fromMake = savingsCycle ? savingsCycle.food : 0;
+    const total = round2(daily + fromMake);
+    return { daily, fromMake, total, budget: BUDGET, over: round2(total - BUDGET) };
+  }
+
+  // สรุปเงินเก็บ: ค่าตรงจากกล่อง H:I ของชีต · รวม = MAKE + มูลค่าหุ้น (บาท)
+  function savingsSummary(s) {
+    if (!s || s.error) return null;
+    const make = parseNum(s.make);
+    const stock = s.stock ? {
+      symbol: s.stock.symbol || '', shares: parseNum(s.stock.shares), priceUsd: parseNum(s.stock.priceUsd),
+      value: parseNum(s.stock.value), cost: parseNum(s.stock.cost), pnl: parseNum(s.stock.pnl),
+    } : null;
+    return {
+      make, stock,
+      outThisCycle: parseNum(s.outThisCycle), inThisCycle: parseNum(s.inThisCycle), cycle: s.cycle || '',
+      total: make == null && stock?.value == null ? null : round2((make || 0) + (stock?.value || 0)),
+    };
+  }
+
   const api = {
     PAY_DAY, BUDGET, TH_MONTHS, CATEGORIES, EXPENSE, INCOME,
+    parseNum, paydayPrep, savingsByCycle, foodActual, savingsSummary,
     round2, parseYmd, ymOf, ymAdd, ymDay, daysBetween,
     fmtDayMonth, fmtDate, fmtYm, fmtYmLong, fmtRange,
     cycleKeyOf, budgetPeriod, fixYmOf, fixPeriod, nextPayday, parseCycleLabel, resolveCycle,
