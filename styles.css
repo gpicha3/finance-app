@@ -75,9 +75,10 @@ svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width:
 }
 .app-bar::before {
   content: ''; position: absolute; inset: 0 0 -22px; z-index: -1; opacity: 0; transition: opacity .3s;
-  background: color-mix(in srgb, var(--canvas) 62%, transparent);
+  /* เลื่อนแล้ว: พื้นทึบเกือบทั้งหมด + blur + เส้นคั่น เนื้อหาไม่ทะลุขึ้นมาใต้ชื่อหน้า */
+  inset: 0; background: color-mix(in srgb, var(--canvas) 90%, transparent);
   -webkit-backdrop-filter: blur(20px) saturate(170%); backdrop-filter: blur(20px) saturate(170%);
-  -webkit-mask-image: linear-gradient(#000 68%, transparent); mask-image: linear-gradient(#000 68%, transparent);
+  border-bottom: 1px solid var(--hair);
 }
 .scrolled .app-bar::before { opacity: 1; }
 .titles { order: 3; flex: 1 0 100%; min-width: 0; }
@@ -85,8 +86,7 @@ svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width:
 .titles h1 { margin: 0; white-space: nowrap; font-size: clamp(24px, 7.6vw, 30px); font-weight: 600; line-height: 1.2; letter-spacing: -.01em; transform-origin: 0 50%; transition: transform .35s var(--ease); }
 .titles small { display: block; font-size: 13px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; transition: opacity .25s; }
 .titles small:empty { display: none; }
-.scrolled .titles h1 { transform: scale(.72); }
-.scrolled .titles small { opacity: 0; }
+.scrolled .titles small { display: none; }
 @keyframes title-in { from { opacity: 0; transform: translateX(calc(var(--dir, 0) * 22px)); } }
 /* ป้ายนับวันเงินเข้า น้ำในป้ายเพิ่มตามวันที่ผ่านไปของรอบ */
 .payday { order: 2; position: relative; flex: none; overflow: hidden; border-radius: 99px; padding: 5px 12px; font-size: 12px; white-space: nowrap; font-weight: 500; font-variant-numeric: tabular-nums; }
@@ -479,7 +479,7 @@ textarea:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
     radial-gradient(46% 30% at 50% 98%, var(--aura3), transparent 70%),
     var(--alpha-bg);
 }
-:root[data-alpha-mode] .app-bar::before { background: color-mix(in srgb, var(--alpha-bg) 70%, transparent); }
+:root[data-alpha-mode] .app-bar::before { background: color-mix(in srgb, var(--alpha-bg) 90%, transparent); }
 /* การ์ดกระจกแบบ Alpha (โหมดมืด) */
 :root[data-alpha-mode="dark"] .panel, :root[data-alpha-mode="dark"] .banner, :root[data-alpha-mode="dark"] .segmented,
 :root[data-alpha-mode="dark"] .ptr, :root[data-alpha-mode="dark"] .payday {
@@ -542,7 +542,11 @@ textarea:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
 /* ---------- แถวบน: ปุ่ม Alpha · อัปเดตเมื่อ · ป้ายเงินเข้า (ชื่อหน้าอยู่บรรทัดถัดไป) ---------- */
 .app-bar .synced { order: 1; flex: 1; min-width: 0; font-size: 11.5px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-align: right; font-variant-numeric: tabular-nums; }
 .app-bar .synced.err { color: var(--bad); }
-.scrolled .app-bar .synced { opacity: 0; }
+/* เลื่อนแล้ว: หัวยุบเหลือแถวเดียว ปุ่ม Alpha · ชื่อหน้า · ป้ายเงินเข้า */
+.scrolled .app-bar { padding-bottom: 10px; }
+.scrolled .app-bar .synced { display: none; }
+.scrolled .titles { order: 1; flex: 1 1 auto; }
+.scrolled .titles h1 { font-size: 19px; line-height: 1.3; overflow: hidden; text-overflow: ellipsis; }
 /* ตัวเลขทั้งก้อนไม่ถูกตัดกลาง */
 .tile b, .sv-row b, .item-amt, .big, .equation b { white-space: nowrap; }
 
@@ -562,3 +566,24 @@ textarea:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
 .sv-row .good, .sv-note.good { color: var(--good); }
 .cycle-extra .tube { margin-top: 2px; }
 .sv-note { margin: 8px 0 0; font-size: 13px; }
+.sv-head { align-items: flex-start; }
+.sv-total { text-align: right; }
+.sv-total small { display: block; font-size: 11.5px; color: var(--muted); }
+.sv-flow { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin: 6px 0 6px; }
+.sv-flow div { border-radius: 14px; padding: 8px 12px; background: color-mix(in srgb, var(--text) 5%, transparent); }
+.sv-flow span { display: block; font-size: 12px; color: var(--muted); }
+.sv-flow b { font-size: 17px; font-weight: 500; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.sv-flow .in b { color: var(--good); }
+.sv-flow .out b { color: var(--bad); }
+.sv-row small.good, .sv-row small.bad { font-size: 12px; }
+.sv-sub { margin: 10px 0 2px; font-size: 12px; color: var(--muted); }
+.sv-list { list-style: none; margin: 0; padding: 0; }
+.sv-tx { display: grid; grid-template-columns: 46px minmax(0, 1fr) auto; column-gap: 10px; padding: 7px 0; border-top: 1px solid var(--hair); font-size: 14px; }
+.sv-tx .d { grid-row: 1 / 3; font-size: 12px; color: var(--muted); padding-top: 2px; }
+.sv-tx .n { overflow-wrap: break-word; min-width: 0; }
+.sv-tx .c { grid-column: 2; font-size: 12px; color: var(--muted); }
+.sv-tx b { grid-column: 3; grid-row: 1 / 3; align-self: center; font-weight: 500; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.sv-tx b.good { color: var(--good); } .sv-tx b.bad { color: var(--bad); }
+.sv-more { display: block; width: 100%; margin-top: 8px; padding: 8px; text-align: center; border: 0; border-radius: 12px; font: inherit; font-size: 13px; cursor: pointer;
+  color: var(--accent); background: color-mix(in srgb, var(--accent) 12%, transparent); }
+:root[data-alpha-mode] .sv-more { color: var(--vi, #b48cff); background: color-mix(in srgb, var(--vi, #b48cff) 14%, transparent); }

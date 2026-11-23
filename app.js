@@ -1,6 +1,6 @@
 'use strict';
 
-const APP_VERSION = '2026.11.23.1';
+const APP_VERSION = '2026.11.23.2';
 const KEYS = { setup: 'fa.setup', data: 'fa.data', synced: 'fa.synced', buddy: 'fa.buddy', cycleView: 'fa.cycleView', links: 'fa.links' };
 
 const $ = (s, el = document) => el.querySelector(s);
@@ -205,17 +205,37 @@ function accountCards(rows) {
 }
 
 // เงินเก็บ: ค่าตรงจากกล่องสรุป H:I ของแท็บ "เงินเก็บ" · ไม่มีข้อมูล (สคริปต์เวอร์ชันเก่า) = ไม่แสดง
-function savingsPanel(sv) {
+// เข้า/ออกรอบนี้ = I5 / I4 (ใส่ +/− เสมอ) · รายการล่าสุดของรอบนี้จาก A:G (แตะ "ดูทั้งหมด" กางทั้งรอบ)
+const SAVE_RECENT = 3;
+function savingsPanel(sv, vm) {
   if (!sv) return '';
   const st = sv.stock;
   const neg = (n) => `${n < 0 ? '−' : ''}${baht(Math.abs(n))}`;
+  const sign = (n) => `${n < 0 ? '−' : '+'}${baht(Math.abs(n))}`;
   const line = (label, value, cls = '', sub = '') => `<div class="sv-row"><span>${label}${sub}</span><b class="${cls}">${value}</b></div>`;
+  const inCycle = sv.inThisCycle ?? 0;
+  const outCycle = Math.abs(sv.outThisCycle ?? 0);
+  const rows = (vm.savingsCycles.get(vm.key)?.rows || [])
+    .map((r, i) => ({ ...r, i, amt: Calc.parseNum(r.amount) }))
+    .filter((r) => r.amt != null)
+    .sort((a, b) => String(b.date).localeCompare(String(a.date)) || b.i - a.i);
+  const shown = state.savingsAll ? rows : rows.slice(0, SAVE_RECENT);
+  const tx = shown.map((r) => {
+    const d = Calc.parseYmd(r.date);
+    const cat = r.category && r.category !== '-' ? r.category : r.type;
+    return `<li class="sv-tx"><span class="d">${d ? Calc.fmtDayMonth(d) : esc(r.date)}</span><span class="n">${esc(r.item) || '–'}</span><span class="c">${esc(cat)}</span><b class="${r.amt < 0 ? 'bad' : 'good'}">${sign(r.amt)}</b></li>`;
+  }).join('');
   return `<section class="panel savings">
-    <div class="sv-head"><span>${t('savings_title')}</span>${sv.total != null ? `<b>${baht(sv.total)}${unit()}</b>` : ''}</div>
+    <div class="sv-head"><span>${t('savings_title')}</span>${sv.total != null ? `<div class="sv-total"><b>${baht(sv.total)}${unit()}</b><small>${t('savings_formula')}</small></div>` : ''}</div>
+    <div class="sv-flow">
+      <div class="in"><span>${t('save_in')}</span><b>${sign(inCycle)}</b></div>
+      <div class="out"><span>${t('save_out')}</span><b>${sign(-outCycle)}</b></div>
+    </div>
     ${sv.make != null ? line(t('make_left'), `${neg(sv.make)}${unit()}`, sv.make < 0 ? 'bad' : '') : ''}
-    ${sv.outThisCycle != null ? line(t('make_out'), `${baht(sv.outThisCycle)}${unit()}`) : ''}
     ${st && st.value != null ? line(t('stock_v', esc(st.symbol)), `${baht(st.value)}${unit()}`, '',
-      st.pnl != null ? `<small class="${st.pnl < 0 ? 'bad' : 'good'}">${t('stock_pnl', `${st.pnl < 0 ? '−' : '+'}${baht(Math.abs(st.pnl))}`)}</small>` : '') : ''}
+      st.pnl != null ? `<small class="${st.pnl < 0 ? 'bad' : 'good'}">${t('stock_pnl', sign(st.pnl))}</small>` : '') : ''}
+    ${rows.length ? `<p class="sv-sub">${t('save_recent')}</p><ul class="sv-list">${tx}</ul>
+      ${rows.length > SAVE_RECENT ? `<button type="button" class="sv-more" data-savings-all>${state.savingsAll ? t('show_less') : t('show_all', rows.length)}</button>` : ''}` : ''}
   </section>`;
 }
 
@@ -250,7 +270,7 @@ function renderToday(vm) {
     </section>
     ${invalid}
     ${accountCards(state.data.accounts)}
-    ${savingsPanel(vm.savings)}
+    ${savingsPanel(vm.savings, vm)}
     <div class="pair">
       <button class="panel tile" data-goto="fixed" data-fix="${vm.fixYm}"><span>${t('salary_left')}</span><b class="${blk && blk.balance < 0 ? 'bad' : ''}">${blk ? `${blk.balance < 0 ? '−' : ''}${plain(Math.abs(blk.balance))}${unit()}` : '–'}</b><small>${t('after_fixed')}</small></button>
       <button class="panel tile" data-goto="loans"><span>${t('loans_cycle')}</span><b>${plain(vm.loans.now)}${unit()}</b><small>${t('item_count', vm.loans.items.filter((i) => !i.done).length - vm.loans.pending.length)}</small></button>
@@ -926,6 +946,7 @@ document.addEventListener('click', (e) => {
     return;
   }
   if (e.target.closest('[data-cycle-now]')) { state.cycleKey = null; render(); return; }
+  if (e.target.closest('[data-savings-all]')) { state.savingsAll = !state.savingsAll; renderToday(viewModel()); return; }
   if (e.target.closest('[data-fix-now]')) { state.fixYm = null; render(); }
 });
 

@@ -63,9 +63,11 @@ export async function getSummary() {
     byDate.get(key).list.push(i);
   }
   if (prep.days <= 14 && prep.total > 0) {
+    // ชื่อตามชีต: ผ่อนรถ = Topic "Car installments" · บิลบัตรเครดิต = แถว "CC - …" (items = รายการย่อย ตัด "CC - " แล้ว)
+    const sub = prep.cards.map((c) => ({ label: c.name, amount: c.amount }));
     const lines = prep.fallback
-      ? [{ label: 'ผ่อน (ยังไม่มีบิลบัตรเดือนนี้)', amount: prep.total }]
-      : [{ label: 'ตัด ttb', amount: prep.ttb }, { label: 'บิลบัตร', amount: prep.cc }];
+      ? [{ label: 'ผ่อน', amount: prep.total, items: sub }]
+      : [{ label: 'ผ่อนรถ', amount: prep.ttb }, { label: 'บิลบัตรเครดิต', amount: prep.cc, items: sub }];
     alerts.push({
       level: levelOf(prep.days), kind: 'payday', dueDate: prepKey, link: `${BASE}#fixed`,
       text: `เตรียมวันเงินเข้า ฿${exact(prep.total)} · ${inDays(prep.days)}`,
